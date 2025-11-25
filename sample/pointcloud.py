@@ -1,9 +1,10 @@
 import math
-import open3d as o3d
+import time
+import tqdm
 import open3d.data
+import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 
 X = 1920  # 200万画素の場合
 Y = 1080
@@ -12,21 +13,28 @@ PXL = X * Y
 k = 2 * math.pi / λ
 
 
-def load_pointcloud() -> np.ndarray:
+def load_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
     point_cloud = o3d.io.read_point_cloud(bunny_path)
-    points = np.asarray(point_cloud.points)
-    # print(points.shape)
-    # print(points.size)
+    print("Loading data completed!")
+    return point_cloud
+
+
+def downsampling(
+    point_cloud: open3d.geometry.PointCloud, every_k_points: int = 10
+) -> open3d.geometry.PointCloud:
+    points = point_cloud.uniform_down_sample(every_k_points=every_k_points)
+    print("Downsampling completed!")
     return points
 
 
-def calculate_hologram(data: np.ndarray) -> tuple:
-    Ix_holo = []
-    Iy_holo = []
-    for y_i in range(Y):
+def calculate_holography(data: np.ndarray) -> np.ndarray:
+    I_holography = np.zeros((Y, X))
+
+    print("Calculating CGH...")
+    for y_i in tqdm.tqdm(range(Y)):
         for x_i in range(X):
-            for d in data:  # WARNING - 各次元が同じsizeだと仮定している
+            for d in data:
                 x_j = d[0]
                 y_j = d[1]
                 z_j = d[2]
@@ -37,26 +45,35 @@ def calculate_hologram(data: np.ndarray) -> tuple:
 
                 r = math.sqrt(((x_p**2) + (y_p**2) + (z_p**2)))
                 I_tmp = (1 / r) * math.cos(k * r)
-                Ix_holo.append(I_tmp + x_p)
-                Iy_holo.append(I_tmp + y_p)
-    return (Ix_holo, Iy_holo)
+                I_holography[y_i, x_i] = I_tmp
+    print("CGH Calculation completed!")
+    return I_holography
 
 
-def show_hologram(Ix_holo: list, Iy_holo: list):
-    plt.plot(Ix_holo, Iy_holo, label="holography")
+def show_hologram(I_holography: np.ndarray) -> None:
+    print("Preparing for display...")
+
+    fig, ax = plt.subplots()
+    CS = ax.contourf(range(X), range(Y), I_holography)
+    fig.colorbar(CS)
+    fig.set_label("holography")
     plt.legend()
     plt.show()
 
 
 def main():
     start = time.time()
+    print("Preparing for CGH...")
 
-    points = load_pointcloud()
-    (Ix_holo, Iy_holo) = calculate_hologram(points)
+    point_cloud = load_pointcloud()
+    point_cloud = downsampling(point_cloud, every_k_points=1000)
+    points = np.asarray(point_cloud.points)
+    I_holography = calculate_holography(points)
+
     end = time.time()
+    print(print("Cal time:{} sec".format(end - start)))
 
-    print(print("Cal time:{}".format(end - start)))
-    show_hologram(Ix_holo, Iy_holo)
+    show_hologram(I_holography)
 
 
 if __name__ == "__main__":
