@@ -7,7 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def load_classical_pointcloud(): ...
+def load_classical_pointcloud() -> open3d.geometry.PointCloud:
+    bunny_path = open3d.data.BunnyMesh().path
+    point_cloud = o3d.io.read_point_cloud(bunny_path)
+    print("Loading data completed!")
+    return point_cloud
 
 
 def preprocess_qbit_from_pointcloud(): ...
