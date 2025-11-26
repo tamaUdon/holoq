@@ -62,18 +62,18 @@ def show_hologram(I_holography: np.ndarray) -> None:
 
 
 def main():
-    start = time.time()
     print("Preparing for CGH...")
+    start = time.time()
 
     point_cloud = load_pointcloud()
     point_cloud = downsampling(point_cloud, every_k_points=1000)
     points = np.asarray(point_cloud.points)
-    I_holography = calculate_holography(points)
+    holography = calculate_holography(points)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
 
-    show_hologram(I_holography)
+    show_hologram(holography)
 
 
 if __name__ == "__main__":
