@@ -15,6 +15,7 @@ class Constants:
     PXL = X * Y
     λ = 500  # 波長
     k = 2 * math.pi / λ
+    reduction_rate = 1000  # ダウンサンプリング率 (1/reduction_rate)
 
 
 def load_pointcloud() -> open3d.geometry.PointCloud:
@@ -33,6 +34,17 @@ def downsampling(
 
 
 def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
+    """
+    calculate_bipolar_holography の Docstring
+
+    :param data: 点群データ
+    :type data: np.ndarray
+    :param constants: 定数データクラス
+    :type constants: Constants
+    :return: 点群ホログラムの計算結果
+    :rtype: np.ndarray
+    """
+
     I_holography = np.zeros((constants.Y, constants.X))
 
     print("Calculating CGH...")
@@ -71,7 +83,7 @@ def main():
 
     constants = Constants()
     point_cloud = load_pointcloud()
-    point_cloud = downsampling(point_cloud, every_k_points=1000)
+    point_cloud = downsampling(point_cloud, every_k_points=constants.reduction_rate)
     points = np.asarray(point_cloud.points)
     holography = calculate_holography(points, constants)
 
