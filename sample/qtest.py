@@ -8,6 +8,11 @@ from qiskit.visualization import plot_histogram
 # pythonリストでの表現
 ket0 = np.array([[1], [0]])
 ket1 = np.array([[0], [1]])
+ket2 = np.array([[0], [2]])
+
+ketmul = np.matmul(ket0, ket1)
+print(f"ketmul={ketmul}")
+
 
 M1 = np.array([[1, 1], [0, 0]])
 M2 = np.array([[1, 0], [0, 1]])

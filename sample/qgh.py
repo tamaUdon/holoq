@@ -6,6 +6,10 @@ import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 from pointcloud import Constants
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import Statevector, Operator
+from qiskit.visualization import plot_histogram
+from numpy import sqrt
 
 
 def load_classical_pointcloud() -> open3d.geometry.PointCloud:
@@ -15,7 +19,7 @@ def load_classical_pointcloud() -> open3d.geometry.PointCloud:
     return point_cloud
 
 
-def calculate_bipolar_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
+def encode_object_to_qbits(data: np.ndarray, constants: Constants) -> np.ndarray:
     """
     calculate_bipolar_holography の Docstring
 
@@ -27,25 +31,30 @@ def calculate_bipolar_holography(data: np.ndarray, constants: Constants) -> np.n
     :rtype: np.ndarray
     """
 
-    I_holography = np.zeros((constants.Y, constants.X))
+    position_states = np.zeros((constants.Y, constants.X))
 
-    print("Calculating CGH...")
+    print("Calculating QGH...")
     for y_i in tqdm.tqdm(range(constants.Y)):
         for x_i in range(constants.X):
             for d in data:
                 x_j = d[0]
                 y_j = d[1]
                 z_j = d[2]
+                rho_j = constants.k * z_j
 
-                x_p = ((constants.PXL * x_i) - x_j) ** 2
-                y_p = ((constants.PXL * y_i) - y_j) ** 2
-                z_p = z_j**2
+                u = Statevector(
+                    [
+                        x_j,
+                        y_j,
+                        rho_j,
+                    ]
+                )
+                position_states.append(u)
 
-                r = math.sqrt((x_p + y_p + z_p))  # TODO - Bipolarに変更する
-                I_tmp = (1 / r) * math.cos(constants.k * r)
-                I_holography[y_i, x_i] = I_tmp
-    print("CGH Calculation completed!")
-    return I_holography
+    # TODO - position_states -> 重ね合わせる
+
+    print("QGH Calculation completed!")
+    return position_states
 
 
 def preprocess_qbit_from_pointcloud(): ...
