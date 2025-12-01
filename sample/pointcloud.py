@@ -23,7 +23,7 @@ class Constants:
     :type k: int
     :param pp: 画素ピッチ
     :type pp: int
-    :param d: ホログラムと物体間の距離 # TODO - 空間分解能を考慮して実装する
+    :param d: ホログラムと物体間の距離
     :type d: int
 
     :return: bipolarホログラムの計算結果
@@ -36,34 +36,25 @@ class Constants:
     λ = 500  # 波長
     k = 2 * math.pi / λ
     pp = 10e-6  # μm
-    d = 10e6  # μm
+    d = 10e-3  # μm
 
 
-def create_pinhole_camera_parameters(
-    pcd: open3d.geometry.PointCloud,
-) -> open3d.camera.PinholeCameraIntrinsic:
-    # 参考 - https://zenn.dev/fastriver/articles/open3d-camera-pinhole#%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%82%92%E5%8F%96%E5%BE%97%E3%81%99%E3%82%8B
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    vis.add_geometry(pcd)
+def create_single_point(constants: Constants) -> np.ndarray:
+    """
+    create_single_point の Docstring
 
-    view_control = vis.get_view_control()
-    pinhole_parameters = view_control.convert_to_pinhole_camera_parameters()
+    - X*Yの中心に物体点 (1点) がある想定
 
-    print(pinhole_parameters.intrinsic.intrinsic_matrix)
-    print(pinhole_parameters.extrinsic)
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    :return: デバッグ用の物体点 (1点)
+    :rtype: np.ndarray
+    """
+    x0 = constants.X / 2
+    y0 = constants.Y / 2
+    z0 = constants.d  # 物体点までの距離
 
-    return pinhole_parameters.intrinsic
-
-
-def create_point_cloud(coordinate: np.ndarray) -> open3d.geometry.PointCloud:
-    data = np.array(coordinate)
-    pcd = o3d.geometry.create_from_depth_image()
-    pcd.points = o3d.utility.Vector3dVector(data)
-
-    pinhole_parameters = create_pinhole_camera_parameters(pcd)
-    pcd = o3d.geometry.create_from_depth_image(pcd, pinhole_parameters)
-    return pcd
+    return np.array([[x0, y0, z0]], dtype=float)
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -119,18 +110,15 @@ def main():
     print("Preparing for CGH...")
 
     constants = Constants()
-    point_cloud = np.array([[0, 0, 0]])
+    points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        coord = np.array(
-            [[constants.X / 2, constants.Y / 2, 10e-3]]  #
-        )  # DEBUG用の1点
-        point_cloud = create_point_cloud(coord)
+        points = create_single_point(constants)
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
+        points = np.asarray(point_cloud.points)
 
-    points = np.asarray(point_cloud.points)
     holography = calculate_holography(points, constants)
 
     end = time.time()
