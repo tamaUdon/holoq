@@ -10,14 +10,43 @@ import dataclasses
 
 @dataclasses.dataclass
 class Constants:
-    X = 192  # 200万画素の場合
-    Y = 108
-    PXL = X * Y
+    """
+    Constants の Docstring
+
+    :param DEBUG: デバッグON/OFF
+    :type DEBUG: Bool
+    :param X,Y: 画素数
+    :type X,Y: int
+    :param λ: 波長
+    :type λ: int (nm) # TODO - [int]にする
+    :param k: 波数 (2pi/λ)
+    :type k: int
+    :param pp: 画素ピッチ
+    :type pp: int
+    :param d: ホログラムと物体間の距離 # TODO - 空間分解能を考慮して実装する
+    :type d: int
+
+    :return: bipolarホログラムの計算結果
+    :rtype: np.ndarray
+    """
+
+    DEBUG = True
+    X = 2000  # 画素X方向
+    Y = X
     λ = 500  # 波長
     k = 2 * math.pi / λ
+    pp = 10e-6  # μm
+    d = 10e6  # μm
 
 
-def load_pointcloud() -> open3d.geometry.PointCloud:
+def create_point_cloud(coordinate: np.ndarray) -> open3d.geometry.PointCloud:
+    data = np.array(coordinate)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(data)
+    return pcd
+
+
+def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
     point_cloud = o3d.io.read_point_cloud(bunny_path)
     print("Loading data completed!")
@@ -38,13 +67,13 @@ def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
     print("Calculating CGH...")
     for y_i in tqdm.tqdm(range(constants.Y)):
         for x_i in range(constants.X):
-            for d in data:
-                x_j = d[0]
-                y_j = d[1]
-                z_j = d[2]
+            for dt in data:
+                x_j = dt[0]
+                y_j = dt[1]
+                z_j = dt[2]
 
-                x_p = ((constants.PXL * x_i) - x_j) ** 2
-                y_p = ((constants.PXL * y_i) - y_j) ** 2
+                x_p = ((x_i) * constants.pp - x_j * constants.pp) ** 2
+                y_p = ((y_i) * constants.pp - y_j * constants.pp) ** 2
                 z_p = z_j**2
 
                 r = math.sqrt((x_p + y_p + z_p))
@@ -70,8 +99,17 @@ def main():
     print("Preparing for CGH...")
 
     constants = Constants()
-    point_cloud = load_pointcloud()
-    point_cloud = downsampling(point_cloud, every_k_points=1000)
+    point_cloud = np.array([[0, 0, 0]])
+
+    if constants.DEBUG:
+        coord = np.array(
+            [[constants.X / 2, constants.Y / 2, 10e-3]]  #
+        )  # DEBUG用の1点
+        point_cloud = create_point_cloud(coord)
+    else:
+        point_cloud = load_bunny_pointcloud()
+        point_cloud = downsampling(point_cloud, every_k_points=1000)
+
     points = np.asarray(point_cloud.points)
     holography = calculate_holography(points, constants)
 
