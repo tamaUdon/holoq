@@ -39,10 +39,30 @@ class Constants:
     d = 10e6  # μm
 
 
+def create_pinhole_camera_parameters(
+    pcd: open3d.geometry.PointCloud,
+) -> open3d.camera.PinholeCameraIntrinsic:
+    # 参考 - https://zenn.dev/fastriver/articles/open3d-camera-pinhole#%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%82%92%E5%8F%96%E5%BE%97%E3%81%99%E3%82%8B
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    vis.add_geometry(pcd)
+
+    view_control = vis.get_view_control()
+    pinhole_parameters = view_control.convert_to_pinhole_camera_parameters()
+
+    print(pinhole_parameters.intrinsic.intrinsic_matrix)
+    print(pinhole_parameters.extrinsic)
+
+    return pinhole_parameters.intrinsic
+
+
 def create_point_cloud(coordinate: np.ndarray) -> open3d.geometry.PointCloud:
     data = np.array(coordinate)
-    pcd = o3d.geometry.PointCloud()
+    pcd = o3d.geometry.create_from_depth_image()
     pcd.points = o3d.utility.Vector3dVector(data)
+
+    pinhole_parameters = create_pinhole_camera_parameters(pcd)
+    pcd = o3d.geometry.create_from_depth_image(pcd, pinhole_parameters)
     return pcd
 
 
