@@ -23,7 +23,7 @@ class Constants:
     :type k: int
     :param pp: 画素ピッチ
     :type pp: int
-    :param d: ホログラムと物体間の距離 # TODO - 空間分解能を考慮して実装する
+    :param d: ホログラムと物体間の距離
     :type d: int
 
     :return: bipolarホログラムの計算結果
@@ -36,14 +36,25 @@ class Constants:
     λ = 500  # 波長
     k = 2 * math.pi / λ
     pp = 10e-6  # μm
-    d = 10e6  # μm
+    d = 10e-3  # μm
 
 
-def create_point_cloud(coordinate: np.ndarray) -> open3d.geometry.PointCloud:
-    data = np.array(coordinate)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(data)
-    return pcd
+def create_single_point(constants: Constants) -> np.ndarray:
+    """
+    create_single_point の Docstring
+
+    - X*Yの中心に物体点 (1点) がある想定
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    :return: デバッグ用の物体点 (1点)
+    :rtype: np.ndarray
+    """
+    x0 = constants.X / 2
+    y0 = constants.Y / 2
+    z0 = constants.d  # 物体点までの距離
+
+    return np.array([[x0, y0, z0]], dtype=float)
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -99,18 +110,15 @@ def main():
     print("Preparing for CGH...")
 
     constants = Constants()
-    point_cloud = np.array([[0, 0, 0]])
+    points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        coord = np.array(
-            [[constants.X / 2, constants.Y / 2, 10e-3]]  #
-        )  # DEBUG用の1点
-        point_cloud = create_point_cloud(coord)
+        points = create_single_point(constants)
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
+        points = np.asarray(point_cloud.points)
 
-    points = np.asarray(point_cloud.points)
     holography = calculate_holography(points, constants)
 
     end = time.time()
