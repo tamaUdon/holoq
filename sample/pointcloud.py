@@ -10,15 +10,58 @@ import dataclasses
 
 @dataclasses.dataclass
 class Constants:
-    X = 192  # 200万画素の場合
-    Y = 108
-    PXL = X * Y
+    """
+    Constants の Docstring
+
+    :param DEBUG: デバッグON/OFF
+    :type DEBUG: Bool
+    :param X,Y: 画素数
+    :type X,Y: int
+    :param λ: 波長
+    :type λ: int (nm) # TODO - [int]にする
+    :param k: 波数 (2pi/λ)
+    :type k: int
+    :param pp: 画素ピッチ
+    :type pp: int
+    :param d: ホログラムと物体間の距離
+    :type d: int
+
+    :return: bipolarホログラムの計算結果
+    :rtype: np.ndarray
+    """
+
+    DEBUG = True
+    X = 2000  # 画素X方向
+    Y = X
     λ = 500  # 波長
     k = 2 * math.pi / λ
+<<<<<<< HEAD
     reduction_rate = 1000  # ダウンサンプリング率 (1/reduction_rate)
+=======
+    pp = 10e-6  # μm
+    d = 10e-3  # μm
+>>>>>>> main
 
 
-def load_pointcloud() -> open3d.geometry.PointCloud:
+def create_single_point(constants: Constants) -> np.ndarray:
+    """
+    create_single_point の Docstring
+
+    - X*Yの中心に物体点 (1点) がある想定
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    :return: デバッグ用の物体点 (1点)
+    :rtype: np.ndarray
+    """
+    x0 = constants.X / 2
+    y0 = constants.Y / 2
+    z0 = constants.d  # 物体点までの距離
+
+    return np.array([[x0, y0, z0]], dtype=float)
+
+
+def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
     point_cloud = o3d.io.read_point_cloud(bunny_path)
     print("Loading data completed!")
@@ -50,13 +93,13 @@ def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
     print("Calculating CGH...")
     for y_i in tqdm.tqdm(range(constants.Y)):
         for x_i in range(constants.X):
-            for d in data:
-                x_j = d[0]
-                y_j = d[1]
-                z_j = d[2]
+            for dt in data:
+                x_j = dt[0]
+                y_j = dt[1]
+                z_j = dt[2]
 
-                x_p = ((constants.PXL * x_i) - x_j) ** 2
-                y_p = ((constants.PXL * y_i) - y_j) ** 2
+                x_p = ((x_i) * constants.pp - x_j * constants.pp) ** 2
+                y_p = ((y_i) * constants.pp - y_j * constants.pp) ** 2
                 z_p = z_j**2
 
                 r = math.sqrt((x_p + y_p + z_p))
@@ -82,9 +125,15 @@ def main():
     start = time.time()
 
     constants = Constants()
-    point_cloud = load_pointcloud()
-    point_cloud = downsampling(point_cloud, every_k_points=constants.reduction_rate)
-    points = np.asarray(point_cloud.points)
+    points = np.array([[0, 0, 0]])
+
+    if constants.DEBUG:
+        points = create_single_point(constants)
+    else:
+        point_cloud = load_bunny_pointcloud()
+        point_cloud = downsampling(point_cloud, every_k_points=1000)
+        points = np.asarray(point_cloud.points)
+
     holography = calculate_holography(points, constants)
 
     end = time.time()
