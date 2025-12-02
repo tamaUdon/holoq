@@ -24,9 +24,10 @@ $ uv run python ./sample/pointcloud.py
 
 ### Output Sample
 - 生成されるホログラフィの画像サンプル
-<img width="640" height="480" alt="20251201_pointcloud" src="https://github.com/user-attachments/assets/117f34fe-aa5f-40b9-bb6f-68ae7fadfff0" />
+<img width="450" alt="20251202_pointcloud" src="https://github.com/user-attachments/assets/01f36ba9-23d7-48fa-8cd9-d28cc01dcbce" />
 
 
 <EOD>
+
 
 
