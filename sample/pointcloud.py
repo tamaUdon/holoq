@@ -31,12 +31,12 @@ class Constants:
     """
 
     DEBUG = True
-    X = 2000  # 画素X方向
+    X = 500  # 画素X方向
     Y = X
-    λ = 500  # 波長
+    λ = 500e-9  # 波長[nm]
     k = 2 * math.pi / λ
-    pp = 10e-6  # μm
-    d = 10e-3  # μm
+    pp = 10e-6  # 画素ピッチ[μm]
+    d = 1000e-3  # 物体までの距離[mm]
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
