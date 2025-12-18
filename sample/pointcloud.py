@@ -1,3 +1,5 @@
+# 点群法で1つのゾーンプレートを表示するスクリプト
+
 import math
 import time
 import tqdm
@@ -72,7 +74,7 @@ def downsampling(
     return points
 
 
-def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
+def calculate_zoneplate(data: np.ndarray, constants: Constants) -> np.ndarray:
     I_holography = np.zeros((constants.Y, constants.X))
 
     print("Calculating CGH...")
@@ -94,7 +96,7 @@ def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
     return I_holography
 
 
-def show_hologram(I_holography: np.ndarray) -> None:
+def show_graph(I_holography: np.ndarray) -> None:
     print("Preparing for display...")
 
     fig, ax = plt.subplots()
@@ -119,12 +121,12 @@ def main():
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
 
-    holography = calculate_holography(points, constants)
+    plate = calculate_zoneplate(points, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
 
-    show_hologram(holography)
+    show_graph(plate)
 
 
 if __name__ == "__main__":
