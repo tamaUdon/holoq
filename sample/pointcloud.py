@@ -1,3 +1,5 @@
+# 点群法で1つのゾーンプレートを表示するスクリプト
+
 import math
 import time
 import tqdm
@@ -36,7 +38,7 @@ class Constants:
     λ = 500e-9  # 波長[nm]
     k = 2 * math.pi / λ
     pp = 10e-6  # 画素ピッチ[μm]
-    d = 1000e-3  # 物体までの距離[mm]
+    d = 100e-3  # 物体までの距離[mm]
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
@@ -57,6 +59,32 @@ def create_single_point(constants: Constants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
+def create_rectangle(constants: Constants) -> np.ndarray:
+    """
+    create_rectangle の Docstring 
+    
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    """
+
+    coords = []
+    rect_n = 4 # 4角形
+    x0 = constants.X / 2
+    y0 = constants.Y / 2
+    x_pad = constants.X / rect_n
+    y_pad = constants.Y / rect_n
+    z0 = constants.d
+
+    for i in range(rect_n):
+        # 四角形の座標を指定
+        x_ = x_pad * (-1) ** i 
+        y_ = y_pad * (-1) ** (i // 2)
+        coords.append([(x0 + x_), (y0 + y_), z0])
+    
+    print(f"coords={coords}")
+    return np.array(coords, dtype=float)
+
+
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
     point_cloud = o3d.io.read_point_cloud(bunny_path)
@@ -72,13 +100,13 @@ def downsampling(
     return points
 
 
-def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
+def calculate_zoneplate(points: np.ndarray, constants: Constants) -> np.ndarray:
     I_holography = np.zeros((constants.Y, constants.X))
 
     print("Calculating CGH...")
     for y_i in tqdm.tqdm(range(constants.Y)):
         for x_i in range(constants.X):
-            for dt in data:
+            for dt in points:
                 x_j = dt[0]
                 y_j = dt[1]
                 z_j = dt[2]
@@ -89,12 +117,12 @@ def calculate_holography(data: np.ndarray, constants: Constants) -> np.ndarray:
 
                 r = math.sqrt((x_p + y_p + z_p))
                 I_tmp = (1 / r) * math.cos(constants.k * r)
-                I_holography[y_i, x_i] = I_tmp
+                I_holography[y_i, x_i] = I_holography[y_i, x_i] + I_tmp
     print("CGH Calculation completed!")
     return I_holography
 
 
-def show_hologram(I_holography: np.ndarray) -> None:
+def show_graph(I_holography: np.ndarray) -> None:
     print("Preparing for display...")
 
     fig, ax = plt.subplots()
@@ -113,18 +141,18 @@ def main():
     points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        points = create_single_point(constants)
+        points = create_rectangle(constants)
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
 
-    holography = calculate_holography(points, constants)
+    plate = calculate_zoneplate(points, constants)  # TODO - ここで足し合わせ np.add?
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
 
-    show_hologram(holography)
+    show_graph(plate)
 
 
 if __name__ == "__main__":
