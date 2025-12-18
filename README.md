@@ -23,11 +23,15 @@ $ uv run python ./sample/pointcloud.py
 
 
 ### Output Sample
-- 生成されるホログラム（ゾーンプレート）の画像サンプル
+- 生成されるホログラムの画像サンプル
+
+#### 1点（ゾーンプレート）
 <img width="450" alt="20251202_pointcloud" src="https://github.com/user-attachments/assets/01f36ba9-23d7-48fa-8cd9-d28cc01dcbce" />
 
-
+### 4点 （ホログラム）
+<img width="450" alt="スクリーンショット 2025-12-19 015815" src="https://github.com/user-attachments/assets/44f0064e-482d-4c96-9a46-83ce64bcc1b7" />
 <EOD>
+
 
 
 
