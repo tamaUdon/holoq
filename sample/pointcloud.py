@@ -112,16 +112,16 @@ def main():
     print("Preparing for CGH...")
 
     constants = Constants()
-    points = np.array([[0, 0, 0]])
+    points = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]])
 
     if constants.DEBUG:
-        points = create_single_point(constants)
+        points = create_single_point(constants)  # TODO - multi-pointsに
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
 
-    plate = calculate_zoneplate(points, constants)
+    plate = calculate_zoneplate(points, constants)  # TODO - ここで足し合わせ np.add?
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
@@ -131,6 +131,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO
+# 1. create_single_point を multi_points にする
 
 # TODO
 # 1. コマンドライン引数を受け取れるようにする
