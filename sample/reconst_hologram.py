@@ -5,7 +5,11 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pointcloud import Constants, create_rectangle_points, generate_hologram
+from pointcloud import (
+    Constants,
+    create_rectangle_points,
+    generate_hologram,
+)
 
 
 def fresnel_propagation(
