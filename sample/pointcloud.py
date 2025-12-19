@@ -33,12 +33,12 @@ class Constants:
     """
 
     DEBUG = True
-    X = 500  # 画素X方向
+    X = 100  # 画素X方向
     Y = X
     λ = 500e-9  # 波長[nm]
     k = 2 * math.pi / λ
     pp = 10e-6  # 画素ピッチ[μm]
-    d = 100e-3  # 物体までの距離[mm]
+    d = 10e-3  # 物体までの距離[mm]
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
@@ -59,30 +59,50 @@ def create_single_point(constants: Constants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_rectangle(constants: Constants) -> np.ndarray:
+def create_rect_points(constants: Constants) -> np.ndarray:
     """
-    create_rectangle の Docstring 
-    
+    create_rect_points 4点ゾーンプレートの点群を作成する関数
+
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
+    center = np.array([constants.X / 2, constants.Y / 2, constants.d])
+    half = np.array([constants.X / 4, constants.Y / 4, 0.0])
 
-    coords = []
-    rect_n = 4 # 4角形
-    x0 = constants.X / 2
-    y0 = constants.Y / 2
-    x_pad = constants.X / rect_n
-    y_pad = constants.Y / rect_n
-    z0 = constants.d
+    signs = np.array(
+        [
+            [1, 1, 0],
+            [-1, 1, 0],
+            [-1, -1, 0],
+            [1, -1, 0],
+        ]
+    )
 
-    for i in range(rect_n):
-        # 四角形の座標を指定
-        x_ = x_pad * (-1) ** i 
-        y_ = y_pad * (-1) ** (i // 2)
-        coords.append([(x0 + x_), (y0 + y_), z0])
-    
-    print(f"coords={coords}")
-    return np.array(coords, dtype=float)
+    return center + signs * half
+
+
+def create_rectangle(constants: Constants) -> np.ndarray:
+    """
+    create_rectangle 四角形点群を作成
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    """
+    x_size = constants.X // 2
+    dx = np.array([constants.X / 4, 0.0, 0.0])
+    dy = np.array([0.0, constants.Y / 4, 0.0])
+
+    x_line = np.array([[x, constants.Y // 2, constants.d] for x in range(x_size)])
+    y_line = np.array([[constants.X // 2, y, constants.d] for y in range(x_size)])
+
+    top = x_line + dy + dx
+    bottom = x_line - dy + dx
+
+    left = y_line + dy + dx
+    right = y_line + dy - dx
+
+    rectangle = np.concatenate((top, bottom, left, right))
+    return rectangle
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -141,13 +161,14 @@ def main():
     points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
+        # points = create_rect_points(constants)
         points = create_rectangle(constants)
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
 
-    plate = calculate_zoneplate(points, constants)  # TODO - ここで足し合わせ np.add?
+    plate = calculate_zoneplate(points, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
