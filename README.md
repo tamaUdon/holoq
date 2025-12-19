@@ -17,6 +17,9 @@ $ uv sync
 ```
 # 点群法のサンプルコードを実行する
 $ uv run python ./sample/pointcloud.py
+
+# ホログラムを再生するサンプルコードを実行する
+$ uv run python ./sample/reconst_hologram.py
 ```
 
 <img width="800" height="94" alt="スクリーンショット 2025-11-28 4 09 12" src="https://github.com/user-attachments/assets/9eade545-98a2-45c7-81f2-09c1fa8d07dd" />
@@ -37,6 +40,7 @@ $ uv run python ./sample/pointcloud.py
 ### 四角形のホログラムと再生像
 <img width="600" alt="Figure_1" src="https://github.com/user-attachments/assets/968afc69-3e8c-4cf4-8fb4-da25793ceb4b" />
 <EOD>
+
 
 
 
