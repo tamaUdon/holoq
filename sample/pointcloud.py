@@ -59,30 +59,38 @@ def create_single_point(constants: Constants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_rectangle(constants: Constants) -> np.ndarray:
+def create_rect_points(constants: Constants) -> np.ndarray:
     """
-    create_rectangle の Docstring
+    create_rect_points 4点ゾーンプレートの点群を作成する関数
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
+    center = np.array([constants.X / 2, constants.Y / 2, constants.d])
+    half = np.array([constants.X / 4, constants.Y / 4, 0.0])
 
-    coords = []
-    rect_n = 4  # 4角形
-    x0 = constants.X / 2
-    y0 = constants.Y / 2
-    x_pad = constants.X / rect_n
-    y_pad = constants.Y / rect_n
-    z0 = constants.d
+    signs = np.array(
+        [
+            [1, 1, 0],
+            [-1, 1, 0],
+            [-1, -1, 0],
+            [1, -1, 0],
+        ]
+    )
 
-    for i in range(rect_n):
-        # 四角形の座標を指定
-        x_ = x_pad * (-1) ** i
-        y_ = y_pad * (-1) ** (i // 2)
-        coords.append([(x0 + x_), (y0 + y_), z0])
+    return center + signs * half
 
-    print(f"coords={coords}")
-    return np.array(coords, dtype=float)
+
+def create_rectangle(constants: Constants) -> np.ndarray:
+    """
+    create_rectangle 四角形点群を作成
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    """
+    half = np.array([constants.X / 4, constants.Y / 4, 0.0])
+    x_size = constants.X // 2
+    y_size = constants.Y // 2
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -141,7 +149,7 @@ def main():
     points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        points = create_rectangle(constants)
+        points = create_rect_points(constants)
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
@@ -157,6 +165,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# TODO
+# 1. 2点を4点にする -> ok
+# 2. 直線で四角形を書く
 
 # TODO
 # 1. コマンドライン引数を受け取れるようにする
