@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import dataclasses
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Constants:
     """
     Constants の Docstring
@@ -36,9 +36,12 @@ class Constants:
     X = 100  # 画素X方向
     Y = X
     λ = 500e-9  # 波長[nm]
-    k = 2 * math.pi / λ
     pp = 10e-6  # 画素ピッチ[μm]
     d = 10e-3  # 物体までの距離[mm]
+
+    @property
+    def k(self) -> float:
+        return 2 * math.pi / self.λ
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
@@ -52,6 +55,7 @@ def create_single_point(constants: Constants) -> np.ndarray:
     :return: デバッグ用の物体点 (1点)
     :rtype: np.ndarray
     """
+
     x0 = constants.X / 2
     y0 = constants.Y / 2
     z0 = constants.d  # 物体点までの距離
@@ -59,13 +63,14 @@ def create_single_point(constants: Constants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_rect_points(constants: Constants) -> np.ndarray:
+def create_four_points(constants: Constants) -> np.ndarray:
     """
     create_rect_points 4点ゾーンプレートの点群を作成する関数
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
+
     center = np.array([constants.X / 2, constants.Y / 2, constants.d])
     half = np.array([constants.X / 4, constants.Y / 4, 0.0])
 
@@ -81,13 +86,14 @@ def create_rect_points(constants: Constants) -> np.ndarray:
     return center + signs * half
 
 
-def create_rectangle(constants: Constants) -> np.ndarray:
+def create_rectangle_points(constants: Constants) -> np.ndarray:
     """
-    create_rectangle 四角形点群を作成
+    create_rectangle_points 四角形点群を作成
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
+
     x_size = constants.X // 2
     dx = np.array([constants.X / 4, 0.0, 0.0])
     dy = np.array([0.0, constants.Y / 4, 0.0])
@@ -120,7 +126,7 @@ def downsampling(
     return points
 
 
-def calculate_zoneplate(points: np.ndarray, constants: Constants) -> np.ndarray:
+def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
     I_holography = np.zeros((constants.Y, constants.X))
 
     print("Calculating CGH...")
@@ -142,7 +148,7 @@ def calculate_zoneplate(points: np.ndarray, constants: Constants) -> np.ndarray:
     return I_holography
 
 
-def show_graph(I_holography: np.ndarray) -> None:
+def show(I_holography: np.ndarray) -> None:
     print("Preparing for display...")
 
     fig, ax = plt.subplots()
@@ -155,25 +161,21 @@ def show_graph(I_holography: np.ndarray) -> None:
 
 def main():
     start = time.time()
-    print("Preparing for CGH...")
-
     constants = Constants()
     points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        # points = create_rect_points(constants)
-        points = create_rectangle(constants)
+        # points = create_four_points(constants) # 4点
+        points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
-
     plate = calculate_zoneplate(points, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
-
-    show_graph(plate)
+    show(plate)
 
 
 if __name__ == "__main__":
