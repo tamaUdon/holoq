@@ -33,12 +33,12 @@ class Constants:
     """
 
     DEBUG = True
-    X = 500  # 画素X方向
+    X = 100  # 画素X方向
     Y = X
     λ = 500e-9  # 波長[nm]
     k = 2 * math.pi / λ
     pp = 10e-6  # 画素ピッチ[μm]
-    d = 100e-3  # 物体までの距離[mm]
+    d = 10e-3  # 物体までの距離[mm]
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
@@ -88,13 +88,21 @@ def create_rectangle(constants: Constants) -> np.ndarray:
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
-    half = np.array([constants.X / 4, constants.Y / 4, 0.0])
     x_size = constants.X // 2
-    y_size = constants.Y // 2
+    dx = np.array([constants.X / 4, 0.0, 0.0])
+    dy = np.array([0.0, constants.Y / 4, 0.0])
 
-    # 四角形の座標を作る
-    # 1. ベースの一直線を作って、それを縦横に回転させるといいのかな
-    # 2. 上はスライドでok, 横は回転行列とかで90度回転+スライド
+    x_line = np.array([[x, constants.Y // 2, constants.d] for x in range(x_size)])
+    y_line = np.array([[constants.X // 2, y, constants.d] for y in range(x_size)])
+
+    top = x_line + dy + dx
+    bottom = x_line - dy + dx
+
+    left = y_line + dy + dx
+    right = y_line + dy - dx
+
+    rectangle = np.concatenate((top, bottom, left, right))
+    return rectangle
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -153,13 +161,14 @@ def main():
     points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        points = create_rect_points(constants)
+        # points = create_rect_points(constants)
+        points = create_rectangle(constants)
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
 
-    plate = calculate_zoneplate(points, constants)  # TODO - ここで足し合わせ np.add?
+    plate = calculate_zoneplate(points, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
@@ -169,11 +178,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# TODO
-# 1. 2点を4点にする -> ok
-# 2. 直線で四角形を書く
 
 # TODO
 # 1. コマンドライン引数を受け取れるようにする
