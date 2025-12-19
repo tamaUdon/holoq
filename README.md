@@ -33,7 +33,12 @@ $ uv run python ./sample/pointcloud.py
 
 #### 四角形（ホログラム）
 <img width="450" alt="rectholo" src="https://github.com/user-attachments/assets/559a47c5-7cca-47b0-a5e2-9f456f8df0de" />
+
+### 四角形のホログラムと再生像
+<img width="600" alt="Figure_1" src="https://github.com/user-attachments/assets/968afc69-3e8c-4cf4-8fb4-da25793ceb4b" />
 <EOD>
+
+
 
 
 
