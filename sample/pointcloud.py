@@ -127,25 +127,19 @@ def downsampling(
 
 
 def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
-    I_holography = np.zeros((constants.Y, constants.X))
+    print("Calculating Hologram...")
+    x = np.arange(constants.X, dtype=np.float64) * constants.pp
+    y = np.arange(constants.Y, dtype=np.float64) * constants.pp
+    xx, yy = np.meshgrid(x, y)
+    hologram = np.zeros((constants.Y, constants.X), dtype=np.float64)
 
-    print("Calculating CGH...")
-    for y_i in tqdm.tqdm(range(constants.Y)):
-        for x_i in range(constants.X):
-            for dt in points:
-                x_j = dt[0]
-                y_j = dt[1]
-                z_j = dt[2]
-
-                x_p = ((x_i) * constants.pp - x_j * constants.pp) ** 2
-                y_p = ((y_i) * constants.pp - y_j * constants.pp) ** 2
-                z_p = z_j**2
-
-                r = math.sqrt((x_p + y_p + z_p))
-                I_tmp = (1 / r) * math.cos(constants.k * r)
-                I_holography[y_i, x_i] = I_holography[y_i, x_i] + I_tmp
+    for xj, yj, zj in tqdm.tqdm(points):
+        dx = xx - xj * constants.pp
+        dy = yy - yj * constants.pp
+        r = np.sqrt(dx * dx + dy * dy + zj * zj)
+        hologram += np.cos(constants.k * r) / r
     print("CGH Calculation completed!")
-    return I_holography
+    return hologram
 
 
 def show(I_holography: np.ndarray) -> None:
