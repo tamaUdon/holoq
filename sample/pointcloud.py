@@ -1,52 +1,16 @@
-# 点群法で1つのゾーンプレートを表示するスクリプト
+# 点群法でホログラムを表示するスクリプト
 
-import math
 import time
 import tqdm
-import open3d.data
-import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
-import dataclasses
 
-
-@dataclasses.dataclass(frozen=True)
-class Constants:
-    """
-    Constants の Docstring
-
-    :param DEBUG: デバッグON/OFF
-    :type DEBUG: Bool
-    :param X,Y: 画素数
-    :type X,Y: int
-    :param λ: 波長
-    :type λ: int (nm) # TODO - [int]にする
-    :param k: 波数 (2pi/λ)
-    :type k: int
-    :param pp: 画素ピッチ
-    :type pp: int
-    :param d: ホログラムと物体間の距離
-    :type d: int
-
-    :return: bipolarホログラムの計算結果
-    :rtype: np.ndarray
-    """
-
-    DEBUG = True
-    X = 100  # 画素X方向
-    Y = X
-    λ = 500e-9  # 波長[nm]
-    pp = 10e-6  # 画素ピッチ[μm]
-    d = 10e-3  # 物体までの距離[mm]
-
-    @property
-    def k(self) -> float:
-        return 2 * math.pi / self.λ
+from constants import Constants
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
     """
-    create_single_point の Docstring
+    create_single_point 1点の点群を作成する関数
 
     - X*Yの中心に物体点 (1点) がある想定
 
@@ -65,7 +29,7 @@ def create_single_point(constants: Constants) -> np.ndarray:
 
 def create_four_points(constants: Constants) -> np.ndarray:
     """
-    create_rect_points 4点ゾーンプレートの点群を作成する関数
+    create_rect_points 4点の点群を作成する関数
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
@@ -86,7 +50,7 @@ def create_four_points(constants: Constants) -> np.ndarray:
 
 def create_rectangle_points(constants: Constants) -> np.ndarray:
     """
-    create_rectangle_points 四角形点群を作成
+    create_rectangle_points 四角形の点群を作成する関数
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
@@ -107,19 +71,6 @@ def create_rectangle_points(constants: Constants) -> np.ndarray:
 
     rectangle = np.concatenate((top, bottom, left, right))
     return rectangle
-
-
-def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
-    bunny_path = open3d.data.BunnyMesh().path
-    point_cloud = o3d.io.read_point_cloud(bunny_path)
-    return point_cloud
-
-
-def downsampling(
-    point_cloud: open3d.geometry.PointCloud, every_k_points: int = 10
-) -> open3d.geometry.PointCloud:
-    points = point_cloud.uniform_down_sample(every_k_points=every_k_points)
-    return points
 
 
 def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
@@ -148,28 +99,16 @@ def show(holography: np.ndarray) -> None:
 def main():
     start = time.time()
     constants = Constants()
-    points = np.array([[0, 0, 0]])
 
-    if constants.DEBUG:
-        # points = create_four_points(constants) # 4点
-        points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
-    else:
-        point_cloud = load_bunny_pointcloud()
-        print("Loading data completed!")
-
-        # point_cloud = downsampling(point_cloud, every_k_points=1000)
-        print("Downsampling completed!")
-
-        points = np.asarray(point_cloud.points)
-
-    plate = generate_hologram(points, constants)
+    points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
+    hologram = generate_hologram(points, constants)
     print("CGH Calculation completed!")
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
 
     print("Preparing for display...")
-    show(plate)
+    show(hologram)
 
 
 if __name__ == "__main__":

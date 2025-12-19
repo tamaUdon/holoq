@@ -1,0 +1,33 @@
+import dataclasses
+import math
+
+
+@dataclasses.dataclass(frozen=True)
+class Constants:
+    """
+    Constants の Docstring
+
+    :param X,Y: 画素数
+    :type X,Y: int
+    :param λ: 波長
+    :type λ: int (nm) # TODO - [int]にする
+    :param k: 波数 (2pi/λ)
+    :type k: int
+    :param pp: 画素ピッチ
+    :type pp: int
+    :param d: ホログラムと物体間の距離
+    :type d: int
+
+    :return: bipolarホログラムの計算結果
+    :rtype: np.ndarray
+    """
+
+    X = 100  # 画素X方向
+    Y = X
+    λ = 500e-9  # 波長[nm]
+    pp = 10e-6  # 画素ピッチ[μm]
+    d = 10e-3  # 物体までの距離[mm]
+
+    @property
+    def k(self) -> float:
+        return 2 * math.pi / self.λ

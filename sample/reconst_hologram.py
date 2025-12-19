@@ -1,12 +1,11 @@
-import dataclasses
 import math
 import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from constants import Constants
 from pointcloud import (
-    Constants,
     create_rectangle_points,
     generate_hologram,
 )
@@ -43,8 +42,8 @@ def show(hologram: np.ndarray, recon: np.ndarray) -> None:
 def main() -> None:
     start = time.time()
     constants = Constants()
-    points = create_rectangle_points(constants)
 
+    points = create_rectangle_points(constants)
     hologram = generate_hologram(points, constants)
     recon = fresnel_propagation(hologram.astype(np.complex128), constants, constants.d)
 
