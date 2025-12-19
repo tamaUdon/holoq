@@ -73,7 +73,6 @@ def create_four_points(constants: Constants) -> np.ndarray:
 
     center = np.array([constants.X / 2, constants.Y / 2, constants.d])
     half = np.array([constants.X / 4, constants.Y / 4, 0.0])
-
     signs = np.array(
         [
             [1, 1, 0],
@@ -82,7 +81,6 @@ def create_four_points(constants: Constants) -> np.ndarray:
             [1, -1, 0],
         ]
     )
-
     return center + signs * half
 
 
@@ -94,17 +92,16 @@ def create_rectangle_points(constants: Constants) -> np.ndarray:
     :type constants: Constants
     """
 
-    x_size = constants.X // 2
+    x_size = constants.X // 2  # Xの1/2サイズの四角形を作る
     dx = np.array([constants.X / 4, 0.0, 0.0])
     dy = np.array([0.0, constants.Y / 4, 0.0])
 
     x_line = np.array([[x, constants.Y // 2, constants.d] for x in range(x_size)])
     y_line = np.array([[constants.X // 2, y, constants.d] for y in range(x_size)])
 
-    # lineをスライドさせて四角形を作る TODO - numpy関数を使う
+    # lineをスライドさせる TODO - numpy関数を使う
     top = x_line + dy + dx
     bottom = x_line - dy + dx
-
     left = y_line + dy + dx
     right = y_line + dy - dx
 
@@ -115,7 +112,6 @@ def create_rectangle_points(constants: Constants) -> np.ndarray:
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
     point_cloud = o3d.io.read_point_cloud(bunny_path)
-    print("Loading data completed!")
     return point_cloud
 
 
@@ -123,12 +119,10 @@ def downsampling(
     point_cloud: open3d.geometry.PointCloud, every_k_points: int = 10
 ) -> open3d.geometry.PointCloud:
     points = point_cloud.uniform_down_sample(every_k_points=every_k_points)
-    print("Downsampling completed!")
     return points
 
 
 def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
-    print("Calculating Hologram...")
     x = np.arange(constants.X, dtype=np.float64) * constants.pp
     y = np.arange(constants.Y, dtype=np.float64) * constants.pp
     xx, yy = np.meshgrid(x, y)
@@ -139,16 +133,13 @@ def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
         dy = yy - yj * constants.pp
         r = np.sqrt(dx * dx + dy * dy + zj * zj)
         hologram += np.cos(constants.k * r) / r
-    print("CGH Calculation completed!")
     return hologram
 
 
-def show(I_holography: np.ndarray) -> None:
-    print("Preparing for display...")
-
+def show(holography: np.ndarray) -> None:
     fig, ax = plt.subplots()
-    CS = ax.contourf(range(Constants.X), range(Constants.Y), I_holography)
-    fig.colorbar(CS)
+    color = ax.contourf(range(Constants.X), range(Constants.Y), holography)
+    fig.colorbar(color)
     fig.set_label("holography")
     plt.legend()
     plt.show()
@@ -164,12 +155,20 @@ def main():
         points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
     else:
         point_cloud = load_bunny_pointcloud()
-        point_cloud = downsampling(point_cloud, every_k_points=1000)
+        print("Loading data completed!")
+
+        # point_cloud = downsampling(point_cloud, every_k_points=1000)
+        print("Downsampling completed!")
+
         points = np.asarray(point_cloud.points)
+
     plate = generate_hologram(points, constants)
+    print("CGH Calculation completed!")
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
+
+    print("Preparing for display...")
     show(plate)
 
 
@@ -179,4 +178,4 @@ if __name__ == "__main__":
 # TODO
 # 1. コマンドライン引数を受け取れるようにする
 # 2. Constantsに引数データを入れる
-# 3. 複数波長を受け取れるようにλを[]にする
+# 3. printの代わりにloggingを入れる
