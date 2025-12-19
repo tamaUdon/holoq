@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import dataclasses
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Constants:
     """
     Constants の Docstring
@@ -36,9 +36,12 @@ class Constants:
     X = 100  # 画素X方向
     Y = X
     λ = 500e-9  # 波長[nm]
-    k = 2 * math.pi / λ
     pp = 10e-6  # 画素ピッチ[μm]
     d = 10e-3  # 物体までの距離[mm]
+
+    @property
+    def k(self) -> float:
+        return 2 * math.pi / self.λ
 
 
 def create_single_point(constants: Constants) -> np.ndarray:
@@ -52,6 +55,7 @@ def create_single_point(constants: Constants) -> np.ndarray:
     :return: デバッグ用の物体点 (1点)
     :rtype: np.ndarray
     """
+
     x0 = constants.X / 2
     y0 = constants.Y / 2
     z0 = constants.d  # 物体点までの距離
@@ -59,13 +63,14 @@ def create_single_point(constants: Constants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_rect_points(constants: Constants) -> np.ndarray:
+def create_four_points(constants: Constants) -> np.ndarray:
     """
     create_rect_points 4点ゾーンプレートの点群を作成する関数
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
+
     center = np.array([constants.X / 2, constants.Y / 2, constants.d])
     half = np.array([constants.X / 4, constants.Y / 4, 0.0])
 
@@ -81,13 +86,14 @@ def create_rect_points(constants: Constants) -> np.ndarray:
     return center + signs * half
 
 
-def create_rectangle(constants: Constants) -> np.ndarray:
+def create_rectangle_points(constants: Constants) -> np.ndarray:
     """
-    create_rectangle 四角形点群を作成
+    create_rectangle_points 四角形点群を作成
 
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
+
     x_size = constants.X // 2
     dx = np.array([constants.X / 4, 0.0, 0.0])
     dy = np.array([0.0, constants.Y / 4, 0.0])
@@ -95,6 +101,7 @@ def create_rectangle(constants: Constants) -> np.ndarray:
     x_line = np.array([[x, constants.Y // 2, constants.d] for x in range(x_size)])
     y_line = np.array([[constants.X // 2, y, constants.d] for y in range(x_size)])
 
+    # lineをスライドさせて四角形を作る TODO - numpy関数を使う
     top = x_line + dy + dx
     bottom = x_line - dy + dx
 
@@ -120,29 +127,23 @@ def downsampling(
     return points
 
 
-def calculate_zoneplate(points: np.ndarray, constants: Constants) -> np.ndarray:
-    I_holography = np.zeros((constants.Y, constants.X))
+def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
+    print("Calculating Hologram...")
+    x = np.arange(constants.X, dtype=np.float64) * constants.pp
+    y = np.arange(constants.Y, dtype=np.float64) * constants.pp
+    xx, yy = np.meshgrid(x, y)
+    hologram = np.zeros((constants.Y, constants.X), dtype=np.float64)
 
-    print("Calculating CGH...")
-    for y_i in tqdm.tqdm(range(constants.Y)):
-        for x_i in range(constants.X):
-            for dt in points:
-                x_j = dt[0]
-                y_j = dt[1]
-                z_j = dt[2]
-
-                x_p = ((x_i) * constants.pp - x_j * constants.pp) ** 2
-                y_p = ((y_i) * constants.pp - y_j * constants.pp) ** 2
-                z_p = z_j**2
-
-                r = math.sqrt((x_p + y_p + z_p))
-                I_tmp = (1 / r) * math.cos(constants.k * r)
-                I_holography[y_i, x_i] = I_holography[y_i, x_i] + I_tmp
+    for xj, yj, zj in tqdm.tqdm(points):
+        dx = xx - xj * constants.pp
+        dy = yy - yj * constants.pp
+        r = np.sqrt(dx * dx + dy * dy + zj * zj)
+        hologram += np.cos(constants.k * r) / r
     print("CGH Calculation completed!")
-    return I_holography
+    return hologram
 
 
-def show_graph(I_holography: np.ndarray) -> None:
+def show(I_holography: np.ndarray) -> None:
     print("Preparing for display...")
 
     fig, ax = plt.subplots()
@@ -155,25 +156,21 @@ def show_graph(I_holography: np.ndarray) -> None:
 
 def main():
     start = time.time()
-    print("Preparing for CGH...")
-
     constants = Constants()
     points = np.array([[0, 0, 0]])
 
     if constants.DEBUG:
-        # points = create_rect_points(constants)
-        points = create_rectangle(constants)
+        # points = create_four_points(constants) # 4点
+        points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
     else:
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
-
-    plate = calculate_zoneplate(points, constants)
+    plate = generate_hologram(points, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
-
-    show_graph(plate)
+    show(plate)
 
 
 if __name__ == "__main__":
