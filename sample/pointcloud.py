@@ -61,14 +61,14 @@ def create_single_point(constants: Constants) -> np.ndarray:
 
 def create_rectangle(constants: Constants) -> np.ndarray:
     """
-    create_rectangle の Docstring 
-    
+    create_rectangle の Docstring
+
     :param constants: 定数クラスのオブジェクト
     :type constants: Constants
     """
 
     coords = []
-    rect_n = 4 # 4角形
+    rect_n = 4  # 4角形
     x0 = constants.X / 2
     y0 = constants.Y / 2
     x_pad = constants.X / rect_n
@@ -77,10 +77,10 @@ def create_rectangle(constants: Constants) -> np.ndarray:
 
     for i in range(rect_n):
         # 四角形の座標を指定
-        x_ = x_pad * (-1) ** i 
+        x_ = x_pad * (-1) ** i
         y_ = y_pad * (-1) ** (i // 2)
         coords.append([(x0 + x_), (y0 + y_), z0])
-    
+
     print(f"coords={coords}")
     return np.array(coords, dtype=float)
 
