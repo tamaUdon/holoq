@@ -92,6 +92,10 @@ def create_rectangle(constants: Constants) -> np.ndarray:
     x_size = constants.X // 2
     y_size = constants.Y // 2
 
+    # 四角形の座標を作る
+    # 1. ベースの一直線を作って、それを縦横に回転させるといいのかな
+    # 2. 上はスライドでok, 横は回転行列とかで90度回転+スライド
+
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
