@@ -101,6 +101,7 @@ def create_rectangle_points(constants: Constants) -> np.ndarray:
     x_line = np.array([[x, constants.Y // 2, constants.d] for x in range(x_size)])
     y_line = np.array([[constants.X // 2, y, constants.d] for y in range(x_size)])
 
+    # lineをスライドさせて四角形を作る TODO - numpy関数を使う
     top = x_line + dy + dx
     bottom = x_line - dy + dx
 
@@ -165,7 +166,7 @@ def main():
         point_cloud = load_bunny_pointcloud()
         point_cloud = downsampling(point_cloud, every_k_points=1000)
         points = np.asarray(point_cloud.points)
-    plate = calculate_zoneplate(points, constants)
+    plate = generate_hologram(points, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
