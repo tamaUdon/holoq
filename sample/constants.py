@@ -24,10 +24,15 @@ class Constants:
 
     X = 100  # 画素X方向
     Y = X
-    λ = 500e-9  # 波長[nm]
+    λ = 633e-9  # 波長[nm]
     pp = 10e-6  # 画素ピッチ[μm]
-    d = 10e-3  # 物体までの距離[mm]
+    d = 1000e-3  # 物体までの距離[mm]
 
     @property
     def k(self) -> float:
         return 2 * math.pi / self.λ
+
+    @property
+    def pad(self) -> int:
+        # X / 2 幅のpadding
+        return self.X // 2
