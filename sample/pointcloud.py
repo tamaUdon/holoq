@@ -27,6 +27,34 @@ def create_single_point(constants: Constants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
+def create_small_opening(constants: Constants, width: int = 10) -> np.ndarray:
+    """
+    create_small_opening 小さな開口部の点群を作成する関数
+
+    - X*Yの中心に物体点 (10*10点) がある想定
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    :param width: int
+    :typewidth: 開口部の幅
+    :return: デバッグ用の物体点 (1点)
+    :rtype: np.ndarray
+    """
+
+    x0 = constants.X / 2
+    y0 = constants.Y / 2
+    z0 = constants.d  # 物体点までの距離
+
+    offsets = np.arange(width) - (width - 1) / 2
+    xs = x0 + offsets
+    ys = y0 + offsets
+    xx, yy = np.meshgrid(xs, ys)
+    zz = np.full_like(xx, z0)
+
+    points = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)
+    return points
+
+
 def create_four_points(constants: Constants) -> np.ndarray:
     """
     create_rect_points 4点の点群を作成する関数
