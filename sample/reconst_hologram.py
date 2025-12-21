@@ -1,28 +1,42 @@
-import dataclasses
 import math
 import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from constants import Constants
 from pointcloud import (
-    Constants,
     create_rectangle_points,
     generate_hologram,
 )
 
 
-def fresnel_propagation(
-    field: np.ndarray, constants: Constants, z: float
+def response(constants: Constants):
+    size_x = constants.X * 2
+    size_y = constants.Y * 2
+    x = (np.arange(size_x, dtype=np.float64) - size_x / 2) * constants.pp
+    y = (np.arange(size_y, dtype=np.float64) - size_y / 2) * constants.pp
+    dx, dy = np.meshgrid(x, y)
+
+    phase = (math.pi / (constants.λ * constants.d)) * (dx * dx + dy * dy)
+    h = np.exp(1j * phase)  # cos, sinに分解できる
+    return np.fft.fft2(np.fft.ifftshift(h))
+
+
+def fresnel_fft(
+    points: np.ndarray,
+    constants: Constants,
 ) -> np.ndarray:
-    fx = np.fft.fftfreq(constants.X, d=constants.pp)
-    fy = np.fft.fftfreq(constants.Y, d=constants.pp)
-    fx, fy = np.meshgrid(fx, fy)
-    h = np.exp(1j * constants.k * z) * np.exp(
-        -1j * math.pi * constants.λ * z * (fx * fx + fy * fy)
-    )
-    spectrum = np.fft.fft2(field)
-    return np.fft.ifft2(spectrum * h)
+    # ゼロパディングありの画像 * FFT --> 出力: F[a]
+    # インパルス応答 * FFT --> 出力: F[a]
+    # F[a] * F[a] * IFFT --> 出力: ゼロパディングありのμ
+    # ゼロパディングを除く --> 出力: 周りこみのないμ
+
+    pad_points = np.pad(points, constants.pad)
+    fa = np.fft.fft2(pad_points)
+    fb = response(constants)
+    μ = np.fft.ifft2(fa * fb)
+    return μ
 
 
 def show(hologram: np.ndarray, recon: np.ndarray) -> None:
@@ -43,10 +57,10 @@ def show(hologram: np.ndarray, recon: np.ndarray) -> None:
 def main() -> None:
     start = time.time()
     constants = Constants()
-    points = create_rectangle_points(constants)
 
+    points = create_rectangle_points(constants)
     hologram = generate_hologram(points, constants)
-    recon = fresnel_propagation(hologram.astype(np.complex128), constants, constants.d)
+    recon = fresnel_fft(hologram.astype(np.complex128), constants)
 
     end = time.time()
     print(f"Cal time: {end - start:.3f} sec")
@@ -55,3 +69,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# TODO
+# 1. エイリアシングが発生しないzを計算する部分を実装する
+# 2. 研究計画スライドを作る
