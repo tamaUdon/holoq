@@ -19,7 +19,8 @@ def response(constants: Constants):
     dx, dy = np.meshgrid(x, y)
 
     phase = (math.pi / (constants.λ * constants.d)) * (dx * dx + dy * dy)
-    h = np.exp(1j * phase)  # cos, sinに分解できる
+    h = np.exp(1j * phase)  # 教科書ではcos, sinに分解されている
+    # sin, cos成分それぞれにFFTをかけられる実装?
     return np.fft.fft2(np.fft.ifftshift(h))
 
 
