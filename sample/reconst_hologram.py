@@ -19,9 +19,8 @@ def response(constants: Constants):
     dx, dy = np.meshgrid(x, y)
 
     phase = (math.pi / (constants.λ * constants.d)) * (dx * dx + dy * dy)
-    h = np.exp(1j * phase)  # 教科書ではcos, sinに分解されている
-    # sin, cos成分それぞれにFFTをかけられる実装?
-    return np.fft.fft2(np.fft.ifftshift(h))
+    h = np.exp(1j * phase)
+    return np.fft.fft2(np.fft.fftshift(h))
 
 
 def fresnel_fft(
@@ -29,9 +28,9 @@ def fresnel_fft(
     constants: Constants,
 ) -> np.ndarray:
     # ゼロパディングありの画像 * FFT --> 出力: F[a]
-    # インパルス応答 * FFT --> 出力: F[a]
-    # F[a] * F[a] * IFFT --> 出力: ゼロパディングありのμ
-    # ゼロパディングを除く --> 出力: 周りこみのないμ
+    # インパルス応答 * FFT --> 出力: F[b]
+    # F[a] * F[b] * IFFT --> 出力: ゼロパディングありのμ
+    # ゼロパディングを除く --> 出力: まわりこみのないμ
 
     pad_points = np.pad(points, constants.pad)
     fa = np.fft.fft2(pad_points)
@@ -72,5 +71,5 @@ if __name__ == "__main__":
     main()
 
 # TODO
+# 0. ゼロパディングを除く実装
 # 1. エイリアシングが発生しないzを計算する部分を実装する
-# 2. 研究計画スライドを作る
