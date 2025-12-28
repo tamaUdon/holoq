@@ -17,15 +17,37 @@ $ uv sync
 ```
 # 点群法のサンプルコードを実行する
 $ uv run python ./sample/pointcloud.py
+
+# ホログラムを再生するサンプルコードを実行する
+$ uv run python ./sample/reconst_hologram.py
 ```
 
 <img width="800" height="94" alt="スクリーンショット 2025-11-28 4 09 12" src="https://github.com/user-attachments/assets/9eade545-98a2-45c7-81f2-09c1fa8d07dd" />
 
 
 ### Output Sample
-- 生成されるホログラフィの画像サンプル
-<img width="400" height="448" alt="スクリーンショット 2025-11-28 18 33 19" src="https://github.com/user-attachments/assets/d2970542-2753-4d7f-ba8b-87d22ceb6760" />
+- 生成されるホログラムの画像サンプル
 
+#### 1点（ゾーンプレート）
+<img width="450" alt="20251202_pointcloud" src="https://github.com/user-attachments/assets/01f36ba9-23d7-48fa-8cd9-d28cc01dcbce" />
+
+#### 4点（ホログラム）
+<img width="450" alt="スクリーンショット 2025-12-19 015815" src="https://github.com/user-attachments/assets/44f0064e-482d-4c96-9a46-83ce64bcc1b7" />
+
+#### 四角形（ホログラム）
+<img width="450" alt="rectholo" src="https://github.com/user-attachments/assets/559a47c5-7cca-47b0-a5e2-9f456f8df0de" />
+
+### 四角形のホログラムと再生像
+<img width="994" height="397" alt="スクリーンショット 2025-12-22 015158" src="https://github.com/user-attachments/assets/c4ce2166-94d4-48e7-a96d-286bbccaddd7" />
 
 <EOD>
+
+
+
+
+
+
+
+
+
 
