@@ -4,7 +4,6 @@ import time
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-
 from constants import Constants
 
 
@@ -19,7 +18,6 @@ def create_single_point(constants: Constants) -> np.ndarray:
     :return: デバッグ用の物体点 (1点)
     :rtype: np.ndarray
     """
-
     x0 = constants.X / 2
     y0 = constants.Y / 2
     z0 = constants.d  # 物体点までの距離
