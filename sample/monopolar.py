@@ -5,22 +5,9 @@ from constants import Constants
 from pointcloud import create_rectangle_points, show
 
 
-def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
-    x = np.arange(constants.X, dtype=np.float64) * constants.pp
-    y = np.arange(constants.Y, dtype=np.float64) * constants.pp
-    xx, yy = np.meshgrid(x, y)
-    hologram = np.zeros((constants.Y, constants.X), dtype=np.float64)
-
-    for xj, yj, zj in tqdm.tqdm(points):
-        dx = xx - xj * constants.pp
-        dy = yy - yj * constants.pp
-        r = np.sqrt(dx * dx + dy * dy + zj * zj)
-        hologram += np.cos(constants.k * r) / r
-    return hologram
-
-
 def monopolar(points: np.ndarray, constants: Constants):
     # Complex, amplitude and phase-only holograms using bipolar approximationのFig.2を参考に作成
+    # monopolar実装版 - 512*512画素で3sec
     scale = 1 << constants.bits_w
     target_bit = constants.bits_w - 1
 
@@ -62,15 +49,14 @@ def monopolar_numpy(points: np.ndarray, constants: Constants):
 
 def main():
     start = time.time()
-    constants = Constants()
 
-    points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
+    constants = Constants()
+    points = create_rectangle_points(constants)
     hologram = monopolar(points, constants)
-    show(hologram)
-    print("CGH Calculation completed!")
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
+    print("CGH Calculation completed!")
 
     print("Preparing for display...")
     show(hologram)
