@@ -1,11 +1,8 @@
 import numpy as np
-import math
 import tqdm
 import time
-import matplotlib.pyplot as plt
-from decimal import Decimal
 from constants import Constants
-from pointcloud import create_rectangle_points, create_single_point, show
+from pointcloud import create_rectangle_points, show
 
 
 def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
