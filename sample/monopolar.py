@@ -21,10 +21,8 @@ def generate_hologram(points: np.ndarray, constants: Constants) -> np.ndarray:
 
 def monopolar(points: np.ndarray, constants: Constants):
     # Complex, amplitude and phase-only holograms using bipolar approximationのFig.2を参考に作成
-    w1_bits = constants.fractional_bit
-    frac_bits = constants.fractional_bit
-    scale = 1 << frac_bits
-    target_bit = frac_bits - 1
+    scale = 1 << constants.bits_w
+    target_bit = constants.bits_w - 1
 
     x = np.arange(constants.X, dtype=np.int64)
     y = np.arange(constants.Y, dtype=np.int64)
@@ -35,7 +33,7 @@ def monopolar(points: np.ndarray, constants: Constants):
         dx = xx.astype(np.float64) - xj
         dy = yy.astype(np.float64) - yj
         w1 = np.round(dx * dx + dy * dy + zj * zj).astype(np.int64)
-        w1 = w1 & ((1 << w1_bits) - 1)
+        w1 = w1 & ((1 << constants.bits_w) - 1)
         theta = (constants.pp * constants.pp) / (2.0 * constants.λ * zj)
         w2 = int(round(theta * scale))
         theta = w1 * w2
