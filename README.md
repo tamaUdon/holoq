@@ -34,13 +34,14 @@ $ uv run python ./sample/reconst_hologram.py
 #### 4点（ホログラム）
 <img width="400" alt="スクリーンショット 2025-12-19 015815" src="https://github.com/user-attachments/assets/44f0064e-482d-4c96-9a46-83ce64bcc1b7" />
 
-### 四角形のホログラムと再生像
+#### 四角形のホログラムと再生像
 <img width="600" alt="スクリーンショット 2025-12-22 015158" src="https://github.com/user-attachments/assets/c4ce2166-94d4-48e7-a96d-286bbccaddd7" />
 
 #### Monopolar高速化手法によるホログラム
 <img width="400" alt="monopolar_hologram" src="https://github.com/user-attachments/assets/14f7b3aa-e23c-4c64-84ea-da0d2fe6db9a" />
 
 <EOD>
+
 
 
 
