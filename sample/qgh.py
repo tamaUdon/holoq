@@ -21,6 +21,7 @@ H_matrix = 1 / np.sqrt(2) * np.array([[1, 1], [1, -1]])
 
 
 class QRegister:
+    # TODO - 数式を見ながらQRegistarを再実装する
     def __init__(self, n) -> None:
         self.n = n
         self.ψ = np.zeros((2,) * n)  # 初期化
@@ -29,8 +30,10 @@ class QRegister:
 
 def H(i, reg: QRegister) -> QRegister:
     # アダマールゲートを作用させる関数
-    reg.ψ = np.tensordot(H_matrix, reg.ψ, (1, i))
-    reg.ψ = np.moveaxis(reg.ψ, 0, i)
+    # reg.ψ = np.tensordot(H_matrix, reg.ψ, (1, i))
+    # reg.ψ = np.moveaxis(reg.ψ, 0, i)
+    reg = np.tensordot(H_matrix, reg, (1, i))
+    reg = np.moveaxis(reg, 0, i)
     return reg
 
 
@@ -66,70 +69,76 @@ def measure(i, reg: QRegister):
         return 1
 
 
-# def init_qbits(cbits: np.ndarray, constants: Constants) -> np.ndarray:
-#     # 1/√N ∑(j=0, N−1) |aj⟩|Pj⟩ ⊗ |xj⟩|yj⟩
-#     # initialize all qubits of Eq. (3) to zero.
-#     # |aj⟩ , |Pj⟩ , |xj⟩ and |yj⟩ denote the quantum registers (collection of qubits) for the point-cloud data.
+def cgh_to_qgh(points: np.ndarray, constants: Constants) -> np.ndarray:
+    # 1/√N ∑(j=0, N−1) |aj⟩|Pj⟩ ⊗ |xj⟩|yj⟩ ... Eq(3)
+    # initialize all qubits of Eq. (3) to zero.
+    # |aj⟩ , |Pj⟩ , |xj⟩ and |yj⟩ denote the quantum registers (collection of qubits) for the point-cloud data.
 
-#     # initialize all qubits
-#     x = np.arange(constants.X, dtype=np.float64)
-#     y = np.arange(constants.Y, dtype=np.float64)
-#     xx, yy = np.meshgrid(x, y)
-#     hologram = np.zeros((constants.Y, constants.X), dtype=np.float64)  # a?
-#     P = np.zeros((constants.Y, constants.X), dtype=np.float64)  # P?
+    scale = 1 << constants.bits_w
+    target_bit = constants.bits_w - 1
 
-#     for xj, yj, zj in tqdm.tqdm(cbits):
-#         # xj, yjにアダマールゲートをかけて、重畳状態(superposition)にする?
-#         # Eq. (3).の重畳状態を作る時にcontrolled-NOT ゲートを通す
-#         # 古典情報 aj , ρj , xh and yh が量子状態になる -> xj, yjを使って計算すれば量子計算になる...ということ?
-#         # 参考 - https://www.kattemolle.com/other/QCinPY.html
+    # initialize all qubits
+    x = np.arange(constants.X, dtype=np.float64)
+    y = np.arange(constants.Y, dtype=np.float64)
+    xx, yy = np.meshgrid(x, y)
+    holoq = np.zeros((constants.Y, constants.X), dtype=np.float64)  # a?
+    P = np.zeros((constants.Y, constants.X), dtype=np.float64)  # P?
 
-#         # 以下monopolar
-#         dx = xx.astype(np.float64) - xj
-#         dy = yy.astype(np.float64) - yj
-#         w1 = np.round(dx * dx + dy * dy + zj * zj).astype(np.int64)
-#         w1 = w1 & ((1 << constants.bits_w) - 1)
-#         theta = (constants.pp * constants.pp) / (2.0 * constants.λ * zj)
-#         w2 = int(round(theta * scale))
-#         theta = w1 * w2
-#         t = (theta >> target_bit) & 1
+    for xj, yj, zj in tqdm.tqdm(points):
+        # xj, yjにアダマールゲートをかけて、重畳状態(superposition)にする?
+        # Eq. (3).の重畳状態を作る時にcontrolled-NOT ゲートを通す
+        # 古典情報 aj , ρj , xh and yh が量子状態になる -> xj, yjを使って計算すれば量子計算になる...ということ?
+        # 参考 - https://www.kattemolle.com/other/QCinPY.html
 
-#         hologram += t.astype(np.float64)
-#     return hologram
+        xj = generate_GHZ(xj)
+        yj = generate_GHZ(yj)
+
+        # 以下monopolar
+        dx = xx.astype(np.float64) - xj
+        dy = yy.astype(np.float64) - yj
+        w1 = np.round(dx * dx + dy * dy + zj * zj).astype(np.int64)
+        w1 = w1 & ((1 << constants.bits_w) - 1)
+        theta = (constants.pp * constants.pp) / (2.0 * constants.λ * zj)
+        w2 = int(round(theta * scale))
+        theta = w1 * w2
+        t = (theta >> target_bit) & 1
+
+        holoq += t.astype(np.float64)
+    return holoq
 
 
 def main():
-    reg = QRegister(4)
-    reg = generate_GHZ(reg)
-    print(reg.ψ.flatten())
-
     # TODO - 初期化~測定を実装
 
-    # start = time.time()
+    start = time.time()
 
-    # constants = Constants()
-    # points = create_rectangle_points(constants)
+    constants = Constants()
+    points = create_rectangle_points(constants)
     # cbits = monopolar(points, constants)
 
-    # # Preparing Qbits
-    # # 1/√N ∑(j=0, N−1) |aj⟩|Pj⟩ ⊗ |xj⟩|yj⟩
-    # # initialize all qubits of Eq. (3) to zero.
-    # # |aj⟩ , |Pj⟩ , |xj⟩ and |yj⟩ denote the quantum registers (collection of qubits) for the point-cloud data.
-    # iqs = init_qbits(cbits, constants)
-    # # Next, the coordinates xj and yj of the point cloud are converted into a quantum superposition state using Hadamard gates.
-    # # Then, the classical information of aj , ρj , xh and yh is converted to qubits through controlled-NOT gates to create the superposition state described in Eq. (3).
-    # qbits = H(iqs)
+    # Preparing Qbits
+    # 1/√N ∑(j=0, N−1) |aj⟩|Pj⟩ ⊗ |xj⟩|yj⟩
+    # initialize all qubits of Eq. (3) to zero.
+    # |aj⟩ , |Pj⟩ , |xj⟩ and |yj⟩ denote the quantum registers (collection of qubits) for the point-cloud data.
 
-    # # Computating QGH
-    # qhologram = qgh(qbits)
-    # recon = measure(qhologram)
+    # Next, the coordinates xj and yj of the point cloud are converted into a quantum superposition state using Hadamard gates.
+    # Then, the classical information of aj , ρj , xh and yh is converted to qubits through controlled-NOT gates to create the superposition state described in Eq. (3).
 
-    # end = time.time()
-    # print(print("Cal time:{} sec".format(end - start)))
-    # print("CGH Calculation completed!")
+    # Computating QGH
+    for i in range(100):
+        holoq = cgh_to_qgh(points, constants)
+        print(holoq.ψ.flatten())
+        print(measure(i, holoq), end="")
+        print(
+            measure(i, holoq), end=" "
+        )  # TODO - これを重ね合わせてmonopolarと同じ像を作る
 
-    # print("Preparing for display...")
-    # show_twin(qhologram, recon)
+    end = time.time()
+    print(print("Cal time:{} sec".format(end - start)))
+    print("CGH Calculation completed!")
+
+    print("Preparing for display...")
+    # show_twin(qhologram, recon) # TODO - 重ね合わせた像を表示
 
 
 if __name__ == "__main__":
