@@ -1,17 +1,70 @@
-import math
 import time
 import tqdm
-import open3d.data
-import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 from pointcloud import Constants, create_rectangle_points
 from reconst_hologram import show_twin
 from monopolar import monopolar
-from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector, Operator
-from qiskit.visualization import plot_histogram
-from numpy import sqrt
+
+# 1量子ビット演算
+ψ = np.zeros(2, 2, 2, 2)
+ψ[0, 0, 0, 0] = ψ[1, 1, 1, 1] = 1 / np.sqrt(2)
+
+# 2量子ビット演算
+CNOT_matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+CNOT_tensor = np.reshape(CNOT_matrix, (2, 2, 2, 2))
+
+# アダマールゲート
+H_matrix = 1 / np.aqrt(2) * [[1, 1], [1, -1]]
+
+# プロジェクター
+projectors = [np.array([1, 0], [0, 0]), np.array([0, 0], [0, 1])]
+
+
+class QRegister:
+    def __init__(self, n) -> None:
+        self.n = n
+        self.ψ = np.zeros((2,) * n)  # 初期化
+        self.ψ[(0,) * 1] = 1  # ψ[0,0,...,0]を1に置き換える
+
+
+def H(i, reg: QRegister) -> QRegister:
+    # アダマールゲートを作用させる関数
+    reg.ψ = np.tensordot(H_matrix, reg.ψ, (1, 1))
+    reg.ψ = np.moveaxis(reg.ψ, 0, i)
+    return reg
+
+
+def CNOT(control: int, target: int, reg: QRegister) -> QRegister:
+    # def H の一般化, 2量子ビット対応
+    reg.ψ = np.tensordot(CNOT_matrix, reg.ψ, ((2, 3), (control, target)))
+    reg.ψ = np.moveaxis(reg.ψ, (0, 1), (control, target))
+    return reg
+
+
+def generate_GHZ(reg: QRegister) -> QRegister:
+    reg = H(0, reg)
+    for i in range(reg.n - 1):
+        reg = CNOT(i, i + 1, reg)
+    return reg
+
+
+def project(i, j, reg: QRegister) -> np.ndarray:
+    projected = np.tensordot(projectors[j], reg.ψ, (1, i))
+    return np.moveaxis(projected, 0, i)
+
+
+def measure(i, reg: QRegister) -> tuple[int, QRegister]:
+    projected = project(i, 0, reg)
+    norm_projected = np.norm(projected.flatten())  # todo np.norm
+
+    if np.random.random() < norm_projected**2:
+        reg.ψ = projected / norm_projected
+        return (0, reg)
+    else:
+        projected = project(i, 1, reg)
+        reg.ψ = projected / np.norm(projected)  # todo np.norm
+        return (1, reg)
 
 
 def init_qbits(cbits: np.ndarray, constants: Constants) -> np.ndarray:
@@ -46,39 +99,38 @@ def init_qbits(cbits: np.ndarray, constants: Constants) -> np.ndarray:
     return hologram
 
 
-def apply_hadamar(iqs: np.ndarray):
-    ...
-    # Next, the coordinates xj and yj of the point cloud are converted into a quantum superposition state using Hadamard gates.
-    # Then, the classical information of aj , ρj , xh and yh is converted to qubits through controlled-NOT gates to create the superposition state described in Eq. (3).
-
-
-def qgh(qbits: np.ndarray): ...
-
-
-def measure(qhologram: np.ndarray): ...
-
-
 def main():
-    start = time.time()
+    reg = QRegister(4)
+    reg = generate_GHZ(reg)
+    print(reg.ψ.flatten())
 
-    constants = Constants()
-    points = create_rectangle_points(constants)
-    cbits = monopolar(points, constants)
+    # TODO - 初期化~測定を実装
 
-    # Preparing Qbits
-    iqs = init_qbits(cbits, constants)
-    qbits = apply_hadamar(iqs)
+    # start = time.time()
 
-    # Computating QGH
-    qhologram = qgh(qbits)
-    recon = measure(qhologram)
+    # constants = Constants()
+    # points = create_rectangle_points(constants)
+    # cbits = monopolar(points, constants)
 
-    end = time.time()
-    print(print("Cal time:{} sec".format(end - start)))
-    print("CGH Calculation completed!")
+    # # Preparing Qbits
+    # # 1/√N ∑(j=0, N−1) |aj⟩|Pj⟩ ⊗ |xj⟩|yj⟩
+    # # initialize all qubits of Eq. (3) to zero.
+    # # |aj⟩ , |Pj⟩ , |xj⟩ and |yj⟩ denote the quantum registers (collection of qubits) for the point-cloud data.
+    # iqs = init_qbits(cbits, constants)
+    # # Next, the coordinates xj and yj of the point cloud are converted into a quantum superposition state using Hadamard gates.
+    # # Then, the classical information of aj , ρj , xh and yh is converted to qubits through controlled-NOT gates to create the superposition state described in Eq. (3).
+    # qbits = H(iqs)
 
-    print("Preparing for display...")
-    show_twin(qhologram, recon)
+    # # Computating QGH
+    # qhologram = qgh(qbits)
+    # recon = measure(qhologram)
+
+    # end = time.time()
+    # print(print("Cal time:{} sec".format(end - start)))
+    # print("CGH Calculation completed!")
+
+    # print("Preparing for display...")
+    # show_twin(qhologram, recon)
 
 
 if __name__ == "__main__":
