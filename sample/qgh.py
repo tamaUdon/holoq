@@ -2,11 +2,19 @@ import time
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
 from pointcloud import Constants, create_rectangle_points
 from reconst_hologram import show_twin
 from monopolar import monopolar
 from scipy.linalg import norm
 
+qip_dir = Path(__file__).resolve().parents[1] / "quantum-image-processing"
+if str(qip_dir) not in sys.path:
+    sys.path.insert(0, str(qip_dir))
+
+import circuit  # noqa: E402
+import encoder  # noqa: E402
 
 # 1量子ビット演算
 ψ = np.zeros([2, 2, 2, 2])
@@ -22,6 +30,12 @@ H_matrix = 1 / np.sqrt(2) * np.array([[1, 1], [1, -1]])
 
 class QRegister:
     # TODO - 数式を見ながらQRegistarを再実装する
+    # Qiskitを使う
+    # エンコードの参考 - https://github.com/ica574/quantum-image-processing
+    # Qiskit で NEQR と QFT を使う実装に変更する
+    #  - https://github.com/Qiskit/textbook/blob/main/notebooks/ch-applications/image-processing-frqi-neqr.ipynb
+    #  - https://qiita.com/tatsunidas/items/ade03830bff751bd7f00
+
     def __init__(self, n) -> None:
         self.n = n
         self.ψ = np.zeros((2,) * n)  # 初期化
@@ -149,5 +163,5 @@ if __name__ == "__main__":
 # 量子情報のエンコード
 # 1. 点群の古典的bit -> monopolar -> ok
 # 2. 点群に対する量子ビットの準備 (基底エンコーディング) -> now
-# 3. QGHの計算 (QFTベースの回路)
-# 4. ホログラムピクセルの測定 (Qbitの測定はポップカウントと同等) <--- 担当と思われる箇所
+# 3. QGHの計算 (QFTベースの回路) -> ok
+# 4. ホログラムピクセルの測定 (Qbitの測定はポップカウントと同等)
