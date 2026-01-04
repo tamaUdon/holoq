@@ -1,155 +1,125 @@
-# 参考 - https://github.com/Qiskit/textbook/blob/main/notebooks/ch-applications/image-processing-frqi-neqr.ipynb
+import math
+from typing import Iterable, List, Sequence, Tuple
 
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
-from qiskit_aer import AerSimulator
-from qiskit import transpile
-from qiskit.visualization import plot_histogram
-
-import qiskit as qk
-from math import pi
 import numpy as np
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
+
+from constants import Constants
+from pointcloud import create_rectangle_points
 
 
-# Initialize the quantum circuit for the image
-# Pixel position
-# 量子回路を初期化
-idx = QuantumRegister(2, "idx")
-
-# グレースケールの場合
-# grayscale pixel intensity value
-intensity = QuantumRegister(8, "intensity")
-
-# 古典レジスタ
-# classical register
-cr = ClassicalRegister(10, "cr")  # 8bitグレースケール + 量子2bit?
-
-# 量子回路を作成
-# create the quantum circuit for the image
-qc_image = QuantumCircuit(intensity, idx, cr)
-
-# 量子ビットの個数を設定
-num_qubits = qc_image.num_qubits
-
-qc_image.draw()
-
-###########
-
-# Initialize the quantum circuit
-
-# Optional: Add Identity gates to the intensity values
-# オプション: 識別ゲートを追加
-for idx in range(intensity.size):
-    qc_image.id(idx)
-
-# Add Hadamard gates to the pixel positions
-qc_image.h(8)
-qc_image.h(9)
-
-# Separate with barrier so it is easy to read later.
-qc_image.barrier()
-qc_image.draw()
-
-###########
-
-# Encode the first pixel, since its value is 0, we will apply ID gates here:
-# 最初のピクセルをエンコード、値が０なのでIDゲートを適用するのみ
-for idx in range(num_qubits):
-    qc_image.id(idx)
-
-qc_image.barrier()
-qc_image.draw()
+def _bits_for_size(size: int) -> int:
+    if size <= 1:
+        return 1
+    return (size - 1).bit_length()
 
 
-###########
+def _encode_fixed_point(value: float, frac_bits: int) -> int:
+    if value < 0:
+        raise ValueError("fixed-point encoding expects non-negative values")
+    return int(round(value * (1 << frac_bits)))
 
 
-# Encode the second pixel whose value is (01100100):
-# 2番目のピクセルをエンコード (01 = 01100100 (Grayscale = 100))
-value01 = "01100100"
-
-# Add the NOT gate to set the position at 01:
-# NOTゲートを適用 -> 01ポジションへ
-qc_image.x(qc_image.num_qubits - 1)
-
-# We'll reverse order the value so it is in the same order when measured.
-for idx, px_value in enumerate(value01[::-1]):
-    if px_value == "1":
-        qc_image.ccx(num_qubits - 1, num_qubits - 2, idx)
-
-# Reset the NOT gate
-# NOT gateをリセット
-qc_image.x(num_qubits - 1)
-
-qc_image.barrier()
-qc_image.draw()
-
-###########
+def _apply_mcx_on_value(
+    qc: QuantumCircuit, control_bits: Sequence[Tuple[int, int]], target
+) -> None:
+    flips = [qc.qubits[q] for q, bit in control_bits if bit == 0]
+    for q in flips:
+        qc.x(q)
+    qc.mcx([qc.qubits[q] for q, _ in control_bits], target)
+    for q in flips:
+        qc.x(q)
 
 
-# Encode the third pixel whose value is (11001000):
-# 3番目のピクセルをエンコード
-value10 = "11001000"
-
-# Add the 0CNOT gates, where 0 is on X pixel:
-qc_image.x(num_qubits - 2)
-for idx, px_value in enumerate(value10[::-1]):
-    if px_value == "1":
-        qc_image.ccx(num_qubits - 1, num_qubits - 2, idx)
-qc_image.x(num_qubits - 2)
-
-
-qc_image.barrier()
-qc_image.draw()
+def _load_value_on_match(
+    qc: QuantumCircuit,
+    control_bits: Sequence[Tuple[int, int]],
+    target_reg: QuantumRegister,
+    value: int,
+) -> None:
+    for bit_idx in range(len(target_reg)):
+        if (value >> bit_idx) & 1:
+            _apply_mcx_on_value(qc, control_bits, target_reg[bit_idx])
 
 
-###########
+def build_pointcloud_state(
+    points: np.ndarray,
+    constants: Constants,
+    frac_bits: int = 16,
+    aj_values: Sequence[int] | None = None,
+    measure: bool = False,
+) -> QuantumCircuit:
+    """
+    Prepare |aj>|Pj>\otimes|xj>|yj> using basis encoding.
+
+    aj is optional; when omitted it defaults to 1 for all points.
+    Pj is fixed-point rho_j = p^2 / (2 * lambda * zj).
+    """
+    if aj_values is None:
+        aj_values = [1] * len(points)
+    if len(aj_values) != len(points):
+        raise ValueError("aj_values must match points length")
+
+    x_bits = _bits_for_size(constants.X)
+    y_bits = _bits_for_size(constants.Y)
+
+    max_aj = max(aj_values) if aj_values else 0
+    aj_bits = max(1, int(max_aj).bit_length())
+
+    rho_values = []
+    for _, _, zj in points:
+        rho = (constants.pp * constants.pp) / (2.0 * constants.λ * float(zj))
+        rho_values.append(_encode_fixed_point(rho, frac_bits))
+    max_rho = max(rho_values) if rho_values else 0
+    rho_bits = max(1, int(max_rho).bit_length())
+
+    aj_reg = QuantumRegister(aj_bits, "aj")
+    rho_reg = QuantumRegister(rho_bits, "rho")
+    x_reg = QuantumRegister(x_bits, "x")
+    y_reg = QuantumRegister(y_bits, "y")
+
+    regs: List[QuantumRegister] = [aj_reg, rho_reg, x_reg, y_reg]
+    if measure:
+        cr = ClassicalRegister(aj_bits + rho_bits + x_bits + y_bits, "cr")
+        qc = QuantumCircuit(*regs, cr)
+    else:
+        qc = QuantumCircuit(*regs)
+
+    # Superposition over x and y indices.
+    qc.h(x_reg)
+    qc.h(y_reg)
+
+    for (xj, yj, zj), aj in zip(points, aj_values):
+        x_idx = int(round(float(xj)))
+        y_idx = int(round(float(yj)))
+
+        if not (0 <= x_idx < constants.X and 0 <= y_idx < constants.Y):
+            raise ValueError("point index out of range")
+
+        control_bits: List[Tuple[int, int]] = []
+        for i in range(x_bits):
+            control_bits.append((qc.find_bit(x_reg[i]).index, (x_idx >> i) & 1))
+        for i in range(y_bits):
+            control_bits.append((qc.find_bit(y_reg[i]).index, (y_idx >> i) & 1))
+
+        rho = (constants.pp * constants.pp) / (2.0 * constants.λ * float(zj))
+        rho_fp = _encode_fixed_point(rho, frac_bits)
+
+        _load_value_on_match(qc, control_bits, aj_reg, int(aj))
+        _load_value_on_match(qc, control_bits, rho_reg, rho_fp)
+
+    if measure:
+        qc.measure(range(qc.num_qubits), range(qc.num_clbits))
+
+    return qc
 
 
-# Encode the third pixel whose value is (11111111):
-# 3番目のピクセルをエンコーディング
-value11 = "11111111"
-
-# Add the CCNOT gates:
-for idx, px_value in enumerate(value11):
-    if px_value == "1":
-        qc_image.ccx(num_qubits - 1, num_qubits - 2, idx)
-
-qc_image.barrier()
-qc_image.measure(range(10), range(10))
-qc_image.draw()
+def main() -> None:
+    constants = Constants()
+    points = create_rectangle_points(constants)
+    qc = build_pointcloud_state(points, constants, frac_bits=16, measure=False)
+    print(qc)
 
 
-###########
-
-
-print("Circuit dimensions")
-print("Circuit depth: ", qc_image.decompose().depth())
-print("Circuit size: ", qc_image.decompose().size())
-
-qc_image.decompose().count_ops()
-
-
-###########
-
-aer_sim = AerSimulator()
-
-try:
-    t_qc_image = transpile(qc_image, backend=aer_sim, optimization_level=1)
-    job_neqr = aer_sim.run(t_qc_image, shots=8192)
-except Exception as e:
-    print("[warn] transpile failed, running without transpile:", repr(e))
-    job_neqr = aer_sim.run(qc_image, shots=8192)
-
-result_neqr = job_neqr.result()
-
-# circuitが1本の場合
-# 複数の場合は get_counts(0) で index 指定する
-counts_neqr = result_neqr.get_counts()
-
-print("Encoded: 00 = 0")
-print("Encoded: 01 = 01100100")
-print("Encoded: 10 = 11001000")
-print("Encoded: 11 = 1")
-
-print(counts_neqr)
-plot_histogram(counts_neqr)
+if __name__ == "__main__":
+    main()
