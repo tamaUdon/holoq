@@ -1,6 +1,7 @@
 # 点群法で量子コンピュータ生成ホログラムを作る
 
 import time
+import math
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,7 +28,7 @@ def monopolar_numpy(points: np.ndarray, constants: Constants):
 
 
 # 量子ビットに埋め込み
-def embed(points: np.ndarray, constants: Constants):
+def encode_basis(points: np.ndarray, constants: Constants):
     # 量子レジスタを初期化
     a_qbit = ...
     P_qbit = ...
@@ -36,7 +37,7 @@ def embed(points: np.ndarray, constants: Constants):
 
     for xj, yj, zj in tqdm.tqdm(points):
         # xj, yj (zj) にアダマールゲートをかけて、重ね合わせ状態にする
-        hadamard()
+        Hadamrd_matrix()
         ...
         # a_j, rho_j, hx, hyにControlled-NOTをかけてqbitにし、重ね合わせ状態にする
         CNOT()
@@ -48,17 +49,52 @@ def embed(points: np.ndarray, constants: Constants):
         ...
 
 
-# アダマール行列で重ね合わせ
-def hadamard(): ...
+# アダマール行列
+# 重ね合わせをつくる行列
+Hadamrd_matrix = 1 / np.sqrt(2) * np.array([[1, 1], [1, -1]])
+
+# Controlled-Notゲート
+# 標的ビットを制御するゲート
+CNOT_matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
 
 
 # Controlled-NOT
 def CNOT(): ...
 
 
+# Hadamard
+def H(): ...
+
+
 # 量子回路を作る
 ADD = ...
 MUL = ...
+SQR = ...
+F = ...
+F_1 = ...
+QFT = ...
+QFT_1 = ...
+
+
+def add(): ...
+
+
+def mul(): ...
+
+
+def sqr(): ...
+
+
+def f(): ...
+
+
+def f_inverse(): ...
+
+
+def qft(): ...
+
+
+def qft_inverse(): ...
 
 
 # T(・)で測定
