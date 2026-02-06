@@ -5,8 +5,40 @@ import math
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
+from typing import Iterable, Tuple
 from constants import Constants
-from sample.pointcloud import create_single_point, generate_hologram, show
+from pointcloud import (
+    create_single_point,
+    create_rectangle_points,
+    generate_hologram,
+    show,
+)
+from constants import Constants
+
+# Qiskit (Aer)
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
+from qiskit_aer import AerSimulator
+
+bits_width = Constants.bits_w
+
+
+def prepare_basis_state(n: int, k: int) -> QuantumCircuit:
+    """
+    基底状態を作る
+
+    :param n: 量子ビットの数
+    :type n: int
+    :param k: 初期状態の値
+    :type k: int
+    :return: 量子回路
+    :rtype: QuantumCircuit
+    """
+    qc = QuantumCircuit(n)
+    for i in range(n):
+        if (k >> i) & 1:
+            qc.x(i)
+    return qc
 
 
 # 古典点群法
@@ -98,7 +130,8 @@ def qft_inverse(): ...
 
 
 # T(・)で測定
-def T(): ...
+def T(value: int, target_bit: int) -> int:
+    return (value >> target_bit) & 1
 
 
 # 1の個数を数える
@@ -109,15 +142,21 @@ def main():
     start = time.time()
     constants = Constants()
 
-    points = create_single_point(constants)  # 四角形 # TODO - 分岐
-    hologram = generate_hologram(points, constants)
-    print("CGH Calculation completed!")
+    qc = QuantumCircuit(4)
+    qc.h(0)
+    qc.cx(0, 1)
+    qc.draw("mpl")
+    plt.show()
 
-    end = time.time()
-    print(print("Cal time:{} sec".format(end - start)))
+    # points = create_single_point(constants)  # 四角形 # TODO - 分岐
+    # hologram = generate_hologram(points, constants)
+    # print("CGH Calculation completed!")
 
-    print("Preparing for display...")
-    show(hologram)
+    # end = time.time()
+    # print(print("Cal time:{} sec".format(end - start)))
+
+    # print("Preparing for display...")
+    # show(hologram)
 
 
 if __name__ == "__main__":
