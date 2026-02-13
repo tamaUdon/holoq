@@ -6,7 +6,14 @@ import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from constants import Constants
-from sample.pointcloud import create_single_point, generate_hologram, show
+from pointcloud import create_single_point, generate_hologram, show
+from qiskit import QuantumCircuit, QuantumRegister
+
+class QRegister:
+    def __init__(self, n) -> None:
+        self.n = n
+        self.ψ = np.zeros((2,) * n)  # 初期化
+        self.ψ[(0,) * n] = 1  # ψ[0,0,...,0]を1に置き換える
 
 
 # 古典点群法
@@ -37,7 +44,7 @@ def encode_basis(points: np.ndarray, constants: Constants):
 
     for xj, yj, zj in tqdm.tqdm(points):
         # xj, yj (zj) にアダマールゲートをかけて、重ね合わせ状態にする
-        Hadamrd_matrix()
+        H_matrix()
         ...
         # a_j, rho_j, hx, hyにControlled-NOTをかけてqbitにし、重ね合わせ状態にする
         CNOT()
@@ -51,23 +58,36 @@ def encode_basis(points: np.ndarray, constants: Constants):
 
 # アダマール行列
 # 重ね合わせをつくる行列
-Hadamrd_matrix = 1 / np.sqrt(2) * np.array([[1, 1], [1, -1]])
+H_matrix = 1 / np.sqrt(2) * np.array([[1, 1], [1, -1]])
 
 # Controlled-Notゲート
 # 標的ビットを制御するゲート
 CNOT_matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
+# 2量子ビット版
+CNOT_tensor = np.reshape(CNOT_matrix, (2, 2, 2, 2))
 
 
 # Controlled-NOT
-def CNOT(): ...
+def CNOT(control: int, target: int, reg: QRegister) -> QRegister:
+    # def H の一般化, n量子ビット対応
+    ...
 
 
 # Hadamard
-def H(): ...
+def H(i, reg: QRegister) -> QRegister:
+    # アダマールゲートを作用させる関数
+    ...
 
 
 # 量子回路を作る
-ADD = ...
+def ADD():
+    # 2量子ビット+2古典ビットの回路
+    qc = QuantumCircuit(2,2)
+    qc.h(0) # Hadamard gate
+    qc.cx(0,1) # CNOT -> 0,1番目の量子ビット間に追加
+    m = qc.measure_all() # 測定
+    print("measured", m)
+
 MUL = ...
 SQR = ...
 F = ...
@@ -109,15 +129,16 @@ def main():
     start = time.time()
     constants = Constants()
 
-    points = create_single_point(constants)  # 四角形 # TODO - 分岐
-    hologram = generate_hologram(points, constants)
-    print("CGH Calculation completed!")
+    #points = create_single_point(constants)  # 四角形 # TODO - 分岐
+    #hologram = generate_hologram(points, constants)
+    #print("CGH Calculation completed!")
+    ADD()
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
 
-    print("Preparing for display...")
-    show(hologram)
+    #print("Preparing for display...")
+    #show(hologram)
 
 
 if __name__ == "__main__":
