@@ -10,7 +10,7 @@ from typing import Iterable, Tuple
 from constants import Constants
 from pointcloud import create_single_point, generate_hologram, show
 from qiskit import QuantumCircuit, QuantumRegister
-
+from qiskit.circuit.library import DraperQFTAdder
 class QRegister:
     def __init__(self, n) -> None:
         self.n = n
@@ -111,16 +111,6 @@ def H(i, reg: QRegister) -> QRegister:
     # アダマールゲートを作用させる関数
     ...
 
-
-# 量子回路を作る
-def ADD():
-    # 2量子ビット+2古典ビットの回路
-    qc = QuantumCircuit(2,2)
-    qc.h(0) # Hadamard gate
-    qc.cx(0,1) # CNOT -> 0,1番目の量子ビット間に追加
-    m = qc.measure_all() # 測定
-    print("measured", m)
-
 MUL = ...
 SQR = ...
 F = ...
@@ -129,7 +119,10 @@ QFT = ...
 QFT_1 = ...
 
 
-def add(): ...
+def add():
+    adder= DraperQFTAdder(3,kind="fixed")
+    print(adder.decompose().draw())
+
 
 
 def mul(): ...
@@ -167,7 +160,8 @@ def main():
     qc.h(0)
     qc.cx(0, 1)
     qc.draw("mpl")
-    plt.show()
+    
+    add()
 
     # points = create_single_point(constants)  # 四角形 # TODO - 分岐
     # hologram = generate_hologram(points, constants)
@@ -183,7 +177,7 @@ if __name__ == "__main__":
 # 0. 量子コンピュータの頭の中 p171を写経（基本的な使い方を確認）
 # 1. 量子コンピュータの頭の中 p246を写経（量子回路~ノイズモデル~測定を確認）
 # 2. p171を4量子ビットに拡張
-# 3. QFT加算器をQiskitで作る方法を調べる
+# 3. QFT加算器をQiskitで作る方法を調べる -> ok
 #       実装する
 # 4. QFT乗算器をQiskitで作る方法を調べる
 #       実装する
