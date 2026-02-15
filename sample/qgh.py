@@ -11,11 +11,15 @@ from constants import Constants
 from pointcloud import create_single_point, generate_hologram, show
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.circuit.library import DraperQFTAdder
+
+
 class QRegister:
     def __init__(self, n) -> None:
         self.n = n
         self.ψ = np.zeros((2,) * n)  # 初期化
         self.ψ[(0,) * n] = 1  # ψ[0,0,...,0]を1に置き換える
+
+
 from pointcloud import (
     create_single_point,
     create_rectangle_points,
@@ -111,6 +115,7 @@ def H(i, reg: QRegister) -> QRegister:
     # アダマールゲートを作用させる関数
     ...
 
+
 MUL = ...
 SQR = ...
 F = ...
@@ -120,9 +125,10 @@ QFT_1 = ...
 
 
 def add():
-    adder= DraperQFTAdder(3,kind="fixed")
+    adder = DraperQFTAdder(3, kind="fixed")
     print(adder.decompose().draw())
-
+    # TODO - DraperQFTは位相の合成にCPゲートを用いているため、軽量化のためにCZゲートに入れ替えてもいい。
+    # Quantum Generated Holograhy ではCZゲートで実装されている ref. 式(8)
 
 
 def mul(): ...
@@ -160,15 +166,15 @@ def main():
     qc.h(0)
     qc.cx(0, 1)
     qc.draw("mpl")
-    
+
     add()
 
     # points = create_single_point(constants)  # 四角形 # TODO - 分岐
     # hologram = generate_hologram(points, constants)
     # print("CGH Calculation completed!")
 
-    #print("Preparing for display...")
-    #show(hologram)
+    # print("Preparing for display...")
+    # show(hologram)
 
 
 if __name__ == "__main__":
