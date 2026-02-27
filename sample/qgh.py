@@ -9,14 +9,15 @@ from constants import Constants
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.circuit import QuantumRegister
+from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import DraperQFTAdder, MultiplierGate, QFTGate, QFT
 
 bits_width = Constants.bits_w
 
 
 # 固定値
-N = 3  # 点群の物体点数
-a = [1, 2, 3, 0]
+N = 4  # 点群の物体点数
+# a = [1, 2, 3, 0]
 ρ = [0.5, 0.25, 0.5, 0]
 xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
 xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
@@ -44,6 +45,9 @@ def init_superposition_state() -> tuple[
         xh_reg, anc1, yh_reg, anc2, rho_reg, anc3
     )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0
 
+    state = Statevector()  # TODO - 状態ベクトルの実装が必要?
+    qc.initialize(state)
+
     return qc, xh_reg, yh_reg, rho_reg
 
 
@@ -58,10 +62,18 @@ def prepare_basis_state(
     - :qc: QuantumCircuit ...量子レジスタを置いている量子回路
     """
 
-    for i in range(bits_width):
-        if (classical_value >> i) & 1:
-            print(f"reg[i]={reg[i]}")
-            qc.x(reg[i])  # |0> -> |1> に反転
+    print(f"{qc.num_ancillas=}")  # 0
+    print(f"{qc.num_clbits=}")  # 0
+    print(f"{qc.num_qubits=}")  # 17
+
+    # 初期化ビット 2^17 = 131072
+    state = np.zeros(1 << qc.num_qubits)
+
+    for j in range(bits_width):
+        if (classical_value >> j) & 1:
+            qc.x(reg[j])  # |0> -> |1> に反転
+
+    qc.initialize(state)
     return qc
 
 
@@ -77,15 +89,15 @@ def count(): ...
 def main():
     constants = Constants()
     qc, xh_reg, yh_reg, rho_reg = init_superposition_state()
-
-    # for reg in (xh_reg, yh_reg, rho_reg):
-    # eg. classical_value = 0b00101  # =5, |1>|0>|1> に変換する
-    sub = prepare_basis_state(
+    qc = prepare_basis_state(
         bits_width=constants.bits_w, classical_value=1, reg=xh_reg, qc=qc
     )
-    # TODO - Fix "Invalid bit index: 'QuantumRegister(4, 'xh')' of type 'QuantumRegister'"
-    qc.compose(sub, qubits=[xh_reg], inplace=True)
-    qc.draw("mpl")
+    # sv = Statevector.from_label()
+
+    # for reg in zip((xh_reg, yh_reg, rho_reg), (xh_yh), (ρ)):
+    # eg. classical_value = 0b00101  # =5, |1>|0>|1> に変換する
+
+    qc.decompose().draw("mpl")
     plt.show()
 
     # points = create_single_point(constants)  # 四角形 # TODO - 分岐
