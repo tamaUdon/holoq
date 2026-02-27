@@ -5,11 +5,7 @@ import tqdm
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Iterable, Tuple
 from constants import Constants
-from constants import Constants
-
-# Qiskit (Aer)
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.circuit import QuantumRegister
@@ -19,14 +15,17 @@ bits_width = Constants.bits_w
 
 
 # 固定値
-N = 3
+N = 3  # 点群の物体点数
 a = [1, 2, 3, 0]
 ρ = [0.5, 0.25, 0.5, 0]
 xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
 xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
 
 
-def init_superposition_state():
+def init_superposition_state() -> tuple[
+    QuantumCircuit, QuantumRegister, QuantumRegister, QuantumRegister
+]:
+    # QuantumRegisterなしで愚直にかくとこうなる
     # xh_start = 0  # 0-index
     # xh_end = xh_start + bits_width  # |xh>
     # yh_start = xh_end + 2  # |0>|0>
@@ -41,14 +40,29 @@ def init_superposition_state():
     rho_reg = QuantumRegister(bits_width, "rho")
     anc3 = QuantumRegister(1, "anc3")  # |0>
 
-    qc = QuantumCircuit(xh_reg, anc1, yh_reg, anc2, rho_reg, anc3)
+    qc = QuantumCircuit(
+        xh_reg, anc1, yh_reg, anc2, rho_reg, anc3
+    )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0
 
-    sub = prepare_basis_state(bits_width, xh_value)
-    qc.compose(sub, qubits=xh_reg[:], inplace=True)
+    return qc, xh_reg, yh_reg, rho_reg
 
-    # 値を入れたいレジスタ（xh, yh, rho）だけ prepare_basis_state() でXゲートをかける
 
-    ...
+def prepare_basis_state(
+    bits_width: int, classical_value: int, reg: QuantumRegister, qc: QuantumCircuit
+):
+    """
+    :Params:
+    - :bits_width: int ...ビット幅
+    - :input: int ...量子レジスタに入力したい値
+    - :reg: QuantumRegister ...入力を受け付ける量子レジスタ
+    - :qc: QuantumCircuit ...量子レジスタを置いている量子回路
+    """
+
+    for i in range(bits_width):
+        if (classical_value >> i) & 1:
+            print(f"reg[i]={reg[i]}")
+            qc.x(reg[i])  # |0> -> |1> に反転
+    return qc
 
 
 # T(・)で測定
@@ -61,12 +75,16 @@ def count(): ...
 
 
 def main():
-    start = time.time()
     constants = Constants()
+    qc, xh_reg, yh_reg, rho_reg = init_superposition_state()
 
-    qc = QuantumCircuit(4)
-    qc.h(0)
-    qc.cx(0, 1)
+    # for reg in (xh_reg, yh_reg, rho_reg):
+    # eg. classical_value = 0b00101  # =5, |1>|0>|1> に変換する
+    sub = prepare_basis_state(
+        bits_width=constants.bits_w, classical_value=1, reg=xh_reg, qc=qc
+    )
+    # TODO - Fix "Invalid bit index: 'QuantumRegister(4, 'xh')' of type 'QuantumRegister'"
+    qc.compose(sub, qubits=[xh_reg], inplace=True)
     qc.draw("mpl")
     plt.show()
 
