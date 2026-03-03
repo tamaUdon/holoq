@@ -25,19 +25,13 @@ N = 2  # 点群の物体点数1+1つダミーとする
 # a = [1, 2, 3, 0]
 ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
 xj_yj = np.array([(0.0, 0.5), (0.5, 1.0)])
-xh_yh = np.array([(1.0, 1.0), (1.0, 1.0)])
+xh_yh = np.array([(1.0, 0.8), (0.6, 1.0)])
 
 
 def init_superposition_state(
     bits_width: int,
-) -> tuple[QuantumCircuit, QuantumRegister, QuantumRegister, QuantumRegister]:
-    # QuantumRegisterなしで愚直にかくとこうなる
-    # xh_start = 0  # 0-index
-    # xh_end = xh_start + bits_width  # |xh>
-    # yh_start = xh_end + 2  # |0>|0>
-    # yh_end = yh_start + bits_width  # |yh>
-    # rho_start = yh_end + 2  # |0>|0>
-    # total_bits_w = rho_start + bits_width + 1  # |ρj>|0>
+) -> QuantumCircuit:
+    assert ...  # 2の累乗であることを確認
 
     xh_reg = QuantumRegister(bits_width, "xh")
     anc1 = QuantumRegister(2, "anc1")  # |0>|0>
@@ -50,85 +44,37 @@ def init_superposition_state(
         xh_reg, anc1, yh_reg, anc2, rho_reg, anc3
     )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0>
 
-    return qc, xh_reg, yh_reg, rho_reg
-
-
-def prepare_basis_state(
-    bit_w: int,
-    xh_yh: np.ndarray,
-    ρ: np.ndarray,
-    regs: list[QuantumRegister],
-    qc: QuantumCircuit,
-) -> QuantumCircuit:
-    """
-    :Params:
-    - :bit_w: int ...ビット幅
-    - :input: int ...量子レジスタに入力したい値
-    - :reg: QuantumRegister ...入力を受け付ける量子レジスタ
-    - :qc: QuantumCircuit ...量子レジスタを置いている量子回路
-    """
-
-    assert ...  # 2の累乗であることを確認
-
-    state = np.zeros(1 << qc.num_qubits, dtype=complex)
-    xh_reg, yh_reg, rho_reg = regs
-
-    print(f"{qc.num_ancillas=}")  # 0
-    print(f"{qc.num_clbits=}")  # 0
-    print(f"{qc.num_qubits=}")  # 17
     xh_offset = qc.find_bit(xh_reg[0]).index
     yh_offset = qc.find_bit(yh_reg[0]).index
     rho_offset = qc.find_bit(rho_reg[0]).index
+    state = np.zeros(1 << qc.num_qubits, dtype=complex)
+
+    def _float_to_int(value: float):
+        """
+        :bit幅に合わせて0.0-1.0を刻む補助関数:
+        - 4bitの場合 0.3 -> 3 -> 0011にmapする
+        """
+        return round(value * ((1 << bits_width) - 1))
 
     for j in range(N):
         xh, yh = xh_yh[j]  # 古典ビット
         rho = ρ[j]
-        print(f"{xh=}, {yh=}, {rho=}")
-        print(f"{xh_offset=}, {yh_offset=}, {rho_offset=}")
-        idx = (xh << xh_offset) | (yh << yh_offset) | (rho << rho_offset)
-        # TODO - offsetがintでxhなどがfloat. floatから安全にintに変換する関数を作る
-        state[idx] += 1 / math.sqrt(N)
-
+        basis_idx = (
+            (_float_to_int(xh) << xh_offset)
+            | (_float_to_int(yh) << yh_offset)
+            | (_float_to_int(rho) << rho_offset)
+        )
+        print(f"{basis_idx=}")
+        state[basis_idx] += 1 / math.sqrt(N)
     qc.initialize(Statevector(state))
-
     return qc
-
-
-# T(・)で測定
-def T(value: int, target_bit: int) -> int:
-    return (value >> target_bit) & 1
-
-
-# 1の個数を数える
-def count(): ...
 
 
 def main():
     constants = Constants()
-    qc, xh_reg, yh_reg, rho_reg = init_superposition_state(bits_width=constants.bits_w)
-    qc = prepare_basis_state(
-        bit_w=constants.bits_w,
-        xh_yh=xh_yh,
-        ρ=ρ,
-        regs=[xh_reg, yh_reg, rho_reg],
-        qc=qc,
-    )
-    # sv = Statevector.from_label()
-    # for reg in zip((xh_reg, yh_reg, rho_reg), (xh_yh), (ρ)):
-    # eg. classical_value = 0b00101  # =5, |1>|0>|1> に変換する
-
+    qc = init_superposition_state(bits_width=constants.bits_w)
     qc.decompose().draw("mpl")
     plt.show()
-
-    # points = create_single_point(constants)  # 四角形 # TODO - 分岐
-    # hologram = generate_hologram(points, constants)
-    # print("CGH Calculation completed!")
-
-    # end = time.time()
-    # print(print("Cal time:{} sec".format(end - start)))
-
-    # print("Preparing for display...")
-    # show(hologram)
 
 
 if __name__ == "__main__":
