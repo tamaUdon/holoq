@@ -39,7 +39,7 @@ def fresnel_fft(
     return μ
 
 
-def show(hologram: np.ndarray, recon: np.ndarray) -> None:
+def show_twin(hologram: np.ndarray, recon: np.ndarray) -> None:
     fig, ax = plt.subplots(1, 2, figsize=(10, 4))
     ax[0].imshow(hologram, cmap="gray")
     ax[0].set_title("Hologram")
@@ -56,15 +56,18 @@ def show(hologram: np.ndarray, recon: np.ndarray) -> None:
 
 def main() -> None:
     start = time.time()
-    constants = Constants()
 
+    constants = Constants()
     points = create_rectangle_points(constants)
     hologram = generate_hologram(points, constants)
     recon = fresnel_fft(hologram.astype(np.complex128), constants)
 
     end = time.time()
     print(f"Cal time: {end - start:.3f} sec")
-    show(hologram, recon)
+    print("CGH Calculation completed!")
+
+    print("Preparing for display...")
+    show_twin(hologram, recon)
 
 
 if __name__ == "__main__":
