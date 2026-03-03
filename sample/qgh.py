@@ -10,22 +10,27 @@ from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.circuit import QuantumRegister
 from qiskit.quantum_info import Statevector
-from qiskit.circuit.library import DraperQFTAdder, MultiplierGate, QFTGate, QFT
-
-bits_width = Constants.bits_w
+from qiskit.circuit.library import DraperQFTAdder, MultiplierGate, QFTGate, QFT, HGate
 
 
-# 固定値
-N = 4  # 点群の物体点数
+# # 固定値 N=4
+# N = 4  # 点群の物体点数3+1つダミーとする
+# # a = [1, 2, 3, 0]
+# ρ = [0.5, 0.25, 0.5, 0]  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
+# xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
+# xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
+
+# 固定値 N=2
+N = 2  # 点群の物体点数1+1つダミーとする
 # a = [1, 2, 3, 0]
-ρ = [0.5, 0.25, 0.5, 0]
-xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
-xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
+ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
+xj_yj = np.array([(0.0, 0.5), (0.5, 1.0)])
+xh_yh = np.array([(1.0, 1.0), (1.0, 1.0)])
 
 
-def init_superposition_state() -> tuple[
-    QuantumCircuit, QuantumRegister, QuantumRegister, QuantumRegister
-]:
+def init_superposition_state(
+    bits_width: int,
+) -> tuple[QuantumCircuit, QuantumRegister, QuantumRegister, QuantumRegister]:
     # QuantumRegisterなしで愚直にかくとこうなる
     # xh_start = 0  # 0-index
     # xh_end = xh_start + bits_width  # |xh>
@@ -43,37 +48,49 @@ def init_superposition_state() -> tuple[
 
     qc = QuantumCircuit(
         xh_reg, anc1, yh_reg, anc2, rho_reg, anc3
-    )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0
-
-    state = Statevector()  # TODO - 状態ベクトルの実装が必要?
-    qc.initialize(state)
+    )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0>
 
     return qc, xh_reg, yh_reg, rho_reg
 
 
 def prepare_basis_state(
-    bits_width: int, classical_value: int, reg: QuantumRegister, qc: QuantumCircuit
-):
+    bit_w: int,
+    xh_yh: np.ndarray,
+    ρ: np.ndarray,
+    regs: list[QuantumRegister],
+    qc: QuantumCircuit,
+) -> QuantumCircuit:
     """
     :Params:
-    - :bits_width: int ...ビット幅
+    - :bit_w: int ...ビット幅
     - :input: int ...量子レジスタに入力したい値
     - :reg: QuantumRegister ...入力を受け付ける量子レジスタ
     - :qc: QuantumCircuit ...量子レジスタを置いている量子回路
     """
 
+    assert ...  # 2の累乗であることを確認
+
+    state = np.zeros(1 << qc.num_qubits, dtype=complex)
+    xh_reg, yh_reg, rho_reg = regs
+
     print(f"{qc.num_ancillas=}")  # 0
     print(f"{qc.num_clbits=}")  # 0
     print(f"{qc.num_qubits=}")  # 17
+    xh_offset = qc.find_bit(xh_reg[0]).index
+    yh_offset = qc.find_bit(yh_reg[0]).index
+    rho_offset = qc.find_bit(rho_reg[0]).index
 
-    # 初期化ビット 2^17 = 131072
-    state = np.zeros(1 << qc.num_qubits)
+    for j in range(N):
+        xh, yh = xh_yh[j]  # 古典ビット
+        rho = ρ[j]
+        print(f"{xh=}, {yh=}, {rho=}")
+        print(f"{xh_offset=}, {yh_offset=}, {rho_offset=}")
+        idx = (xh << xh_offset) | (yh << yh_offset) | (rho << rho_offset)
+        # TODO - offsetがintでxhなどがfloat. floatから安全にintに変換する関数を作る
+        state[idx] += 1 / math.sqrt(N)
 
-    for j in range(bits_width):
-        if (classical_value >> j) & 1:
-            qc.x(reg[j])  # |0> -> |1> に反転
+    qc.initialize(Statevector(state))
 
-    qc.initialize(state)
     return qc
 
 
@@ -88,12 +105,15 @@ def count(): ...
 
 def main():
     constants = Constants()
-    qc, xh_reg, yh_reg, rho_reg = init_superposition_state()
+    qc, xh_reg, yh_reg, rho_reg = init_superposition_state(bits_width=constants.bits_w)
     qc = prepare_basis_state(
-        bits_width=constants.bits_w, classical_value=1, reg=xh_reg, qc=qc
+        bit_w=constants.bits_w,
+        xh_yh=xh_yh,
+        ρ=ρ,
+        regs=[xh_reg, yh_reg, rho_reg],
+        qc=qc,
     )
     # sv = Statevector.from_label()
-
     # for reg in zip((xh_reg, yh_reg, rho_reg), (xh_yh), (ρ)):
     # eg. classical_value = 0b00101  # =5, |1>|0>|1> に変換する
 
