@@ -12,26 +12,18 @@ from qiskit.circuit import QuantumRegister
 from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import DraperQFTAdder, MultiplierGate, QFTGate, QFT, HGate
 
-
-# # 固定値 N=4
-# N = 4  # 点群の物体点数3+1つダミーとする
-# # a = [1, 2, 3, 0]
-# ρ = [0.5, 0.25, 0.5, 0]  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
-# xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
-# xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
-
 # 固定値 N=2
 N = 2  # 点群の物体点数1+1つダミーとする
 # a = [1, 2, 3, 0]
 ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
-xj_yj = np.array([(0.0, 0.5), (0.5, 1.0)])
-xh_yh = np.array([(1.0, 0.8), (0.6, 1.0)])
+xj_yj = np.array([(0, 1), (0, 1)])
+xh_yh = np.array([(0, 1), (0, 1)])
 
 
 def init_superposition_state(
     bits_width: int,
 ) -> QuantumCircuit:
-    assert ...  # 2の累乗であることを確認
+    assert ...  # TODO - 2の累乗であることを確認
 
     xh_reg = QuantumRegister(bits_width, "xh")
     anc1 = QuantumRegister(2, "anc1")  # |0>|0>
@@ -70,6 +62,28 @@ def init_superposition_state(
     return qc
 
 
+def compose_circuits():
+    DraperQFTAdder(a, b)  # 入力:a=|xj>|xh>, b=|yj>yh> -> 出力:|a>|φ(a+b)> (QFT空間へ)
+    QFT(
+        num_qubits=n, inverse=True
+    )  # 入力:|φ(xjh)>,|φ(yjh)> ->  出力: |xjh>, |yjh> (QFTから実空間へ)
+    QFT_SQR  # 入力:|xjh>, |yjh> -> 出力:|φ(x^2jh)>,|φ(y^2jh)> (QFT空間へ)
+    QFT(
+        num_qubits=n, inverse=True
+    )  # 入力: |φ(x^2jh)>,|φ(y^2jh)> -> 出力: |x^2jh>, |y^2jh> (QFTから実空間へ)
+    DraperQFTAdder(a, b)  # 入力: x^2jh,y^2jh -> |φ|x^2jh + y^2jh>  (QFT空間へ)
+    QFT(
+        num_qubits=n, inverse=True
+    )  # 入力:  |φ|x^2jh + y^2jh> -> 出力: |x^2jh + y^2jh>|ρj> (QFTから実空間へ)
+    MultiplierGate(
+        num_state_qubits=n
+    )  # 入力: |x^2jh + y^2jh>, |ρj> -> 出力: |𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ))> (QFT空間へ)
+    QFT(
+        num_qubits=n, inverse=True
+    )  # 入力:  𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)) -> 出力: |𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)>  (QFTから実空間へ)
+    # -- ここまでで量子ホログラムが計算できている --#
+
+
 def main():
     constants = Constants()
     qc = init_superposition_state(bits_width=constants.bits_w)
@@ -79,6 +93,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# # 固定値 N=4
+# N = 4  # 点群の物体点数3+1つダミーとする
+# # a = [1, 2, 3, 0]
+# ρ = [0.5, 0.25, 0.5, 0]  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
+# xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
+# xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
 
 # 1. 物体点数が1の場合で実装する
 # 3. QFT加算器をQiskitで作る方法を調べる、手計算 -> ok
