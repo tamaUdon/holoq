@@ -23,20 +23,22 @@ xh_yh = np.array([(0, 1), (0, 1)])
 def init_superposition_state(
     bits_width: int,
 ) -> QuantumCircuit:
-    assert ...  # TODO - 2の累乗であることを確認
-
+    xj_reg = QuantumRegister(bits_width, "xj")
     xh_reg = QuantumRegister(bits_width, "xh")
     anc1 = QuantumRegister(2, "anc1")  # |0>|0>
+    yj_reg = QuantumRegister(bits_width, "yj")
     yh_reg = QuantumRegister(bits_width, "yh")
     anc2 = QuantumRegister(2, "anc2")  # |0>|0>
     rho_reg = QuantumRegister(bits_width, "rho")
     anc3 = QuantumRegister(1, "anc3")  # |0>
 
     qc = QuantumCircuit(
-        xh_reg, anc1, yh_reg, anc2, rho_reg, anc3
+        xj_reg, xh_reg, anc1, yj_reg, yh_reg, anc2, rho_reg, anc3
     )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0>
 
+    xj_offset = qc.find_bit(xj_reg[0]).index
     xh_offset = qc.find_bit(xh_reg[0]).index
+    yj_offset = qc.find_bit(yj_reg[0]).index
     yh_offset = qc.find_bit(yh_reg[0]).index
     rho_offset = qc.find_bit(rho_reg[0]).index
     state = np.zeros(1 << qc.num_qubits, dtype=complex)
@@ -48,21 +50,23 @@ def init_superposition_state(
         """
         return round(value * ((1 << bits_width) - 1))
 
-    for j in range(N):
+    for j in range(N):  # Σ
+        xj, yj = xj_yj[j]
         xh, yh = xh_yh[j]  # 古典ビット
         rho = ρ[j]
         basis_idx = (
-            (_float_to_int(xh) << xh_offset)
+            (_float_to_int(xj) << xj_offset)
+            | (_float_to_int(xh) << xh_offset)
+            | (_float_to_int(yj) << yj_offset)
             | (_float_to_int(yh) << yh_offset)
             | (_float_to_int(rho) << rho_offset)
         )
-        print(f"{basis_idx=}")
-        state[basis_idx] += 1 / math.sqrt(N)
+        state[basis_idx] += 1 / math.sqrt(N)  # 1/√N
     qc.initialize(Statevector(state))
     return qc
 
 
-def compose_circuits():
+def compose_circuits(qc: QuantumCircuit, bits_w: int):
     DraperQFTAdder(a, b)  # 入力:a=|xj>|xh>, b=|yj>yh> -> 出力:|a>|φ(a+b)> (QFT空間へ)
     QFT(
         num_qubits=n, inverse=True
@@ -79,9 +83,18 @@ def compose_circuits():
         num_state_qubits=n
     )  # 入力: |x^2jh + y^2jh>, |ρj> -> 出力: |𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ))> (QFT空間へ)
     QFT(
-        num_qubits=n, inverse=True
+        num_qubits=N, inverse=True
     )  # 入力:  𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)) -> 出力: |𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)>  (QFTから実空間へ)
     # -- ここまでで量子ホログラムが計算できている --#
+
+    neg_xh = (1 << bits_w) - xh_i
+    xh_reg = qc.
+    xj_reg = qc.
+    adder = DraperQFTAdder(num_state_qubits=qc.num_qubits, kind="fixed")
+    qft_1 = QFT(num_qubits=N, inverse=True)
+    sqr = ...
+    mul = MultiplierGate(num_result_qubits=bits_w, num_state_qubits=qc.num_qubits + offset)
+    qc.append(adder, xh_reg + xj_reg)
 
 
 def main():
