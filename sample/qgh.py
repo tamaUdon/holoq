@@ -25,14 +25,14 @@ def init_superposition_state(
 ) -> QuantumCircuit:
     xj_reg = QuantumRegister(bits_width, "xj")
     xh_reg = QuantumRegister(bits_width, "xh")
-    anc1 = QuantumRegister(1, "anc1")  # |0>
-    anc2 = QuantumRegister(1, "anc2")  # |0>
+    anc1 = QuantumRegister(2, "anc1")  # |0>
+    anc2 = QuantumRegister(2, "anc2")  # |0>
     yj_reg = QuantumRegister(bits_width, "yj")
     yh_reg = QuantumRegister(bits_width, "yh")
-    anc3 = QuantumRegister(1, "anc3")  # |0>
-    anc4 = QuantumRegister(1, "anc4")  # |0>
+    anc3 = QuantumRegister(2, "anc3")  # |0>
+    anc4 = QuantumRegister(2, "anc4")  # |0>
     rho_reg = QuantumRegister(bits_width, "rho")
-    anc5 = QuantumRegister(1, "anc5")  # |0>
+    anc5 = QuantumRegister(2, "anc5")  # |0>
 
     qc = QuantumCircuit(
         xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
@@ -68,25 +68,24 @@ def init_superposition_state(
     return qc
 
 
-def compose_circuits(qc: QuantumCircuit, bits_w: int):
-    DraperQFTAdder(a, b)  # 入力:a=|xj>|xh>, b=|yj>yh> -> 出力:|a>|φ(a+b)> (QFT空間へ)
+def compose_circuits(qc: QuantumCircuit, num_state_qubits: int):
+    """
+    ### 量子回路を定義する関数
+    :qc: 量子回路のインスタンス
+    :num_state_qubits: 入力レジスタのビット数
+
+    """
     QFT(
-        num_qubits=n, inverse=True
+        num_qubits=2, inverse=True, insert_barriers=True
     )  # 入力:|φ(xjh)>,|φ(yjh)> ->  出力: |xjh>, |yjh> (QFTから実空間へ)
+    DraperQFTAdder(
+        num_state_qubits=num_state_qubits, kind="half"
+    )  # 入力:a=|xj>|xh>, b=|yj>yh> -> 出力:|a>|φ(a+b)> (QFT空間へ)
     QFT_SQR  # 入力:|xjh>, |yjh> -> 出力:|φ(x^2jh)>,|φ(y^2jh)> (QFT空間へ)
-    QFT(
-        num_qubits=n, inverse=True
-    )  # 入力: |φ(x^2jh)>,|φ(y^2jh)> -> 出力: |x^2jh>, |y^2jh> (QFTから実空間へ)
-    DraperQFTAdder(a, b)  # 入力: x^2jh,y^2jh -> |φ|x^2jh + y^2jh>  (QFT空間へ)
-    QFT(
-        num_qubits=n, inverse=True
-    )  # 入力:  |φ|x^2jh + y^2jh> -> 出力: |x^2jh + y^2jh>|ρj> (QFTから実空間へ)
+    # TODO - SQRを実装する
     MultiplierGate(
-        num_state_qubits=n
+        num_state_qubits=num_state_qubits, num_result_qubits=...
     )  # 入力: |x^2jh + y^2jh>, |ρj> -> 出力: |𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ))> (QFT空間へ)
-    QFT(
-        num_qubits=N, inverse=True
-    )  # 入力:  𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)) -> 出力: |𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)>  (QFTから実空間へ)
     # -- ここまでで量子ホログラムが計算できている --#
 
     # ゲートの定義
@@ -99,7 +98,8 @@ def compose_circuits(qc: QuantumCircuit, bits_w: int):
 
     # 入力レジスタの定義
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
-    neg_xh = (1 << bits_w) - xh_i  # 入力する値
+    # neg_xj = (1 << bits_w) - xj_i
+    # neg_yj = (1 << bits_w) - yj_i # TODO - 入力値のxj,yjを負数にする
 
     # 量子回路の定義
     qc.append(adder, xh_reg - xj_reg)  # xh - xj # TODO 負数の表現
