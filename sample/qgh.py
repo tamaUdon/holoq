@@ -5,7 +5,6 @@ import tqdm
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import ClassicalConstants
 from constants import QuantumConstants
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
@@ -13,26 +12,17 @@ from qiskit.circuit import QuantumRegister
 from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import DraperQFTAdder, MultiplierGate, QFTGate, QFT, HGate
 
-# 固定値 N=2
-N = 2  # 点群の物体点数1+1つダミーとする
-# a = [1, 2, 3, 0]
-ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
-xj_yj = np.array([(0, 1), (0, 1)])
-xh_yh = np.array([(0, 1), (0, 1)])
 
-
-def init_superposition_state(
-    bits_width: int,
-) -> QuantumCircuit:
-    xj_reg = QuantumRegister(bits_width, "xj")
-    xh_reg = QuantumRegister(bits_width, "xh")
+def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
+    xj_reg = QuantumRegister(qconsts.bits_w, "xj")
+    xh_reg = QuantumRegister(qconsts.bits_w, "xh")
     anc1 = QuantumRegister(2, "anc1")  # |0>
     anc2 = QuantumRegister(2, "anc2")  # |0>
-    yj_reg = QuantumRegister(bits_width, "yj")
-    yh_reg = QuantumRegister(bits_width, "yh")
+    yj_reg = QuantumRegister(qconsts.bits_w, "yj")
+    yh_reg = QuantumRegister(qconsts.bits_w, "yh")
     anc3 = QuantumRegister(2, "anc3")  # |0>
     anc4 = QuantumRegister(2, "anc4")  # |0>
-    rho_reg = QuantumRegister(bits_width, "rho")
+    rho_reg = QuantumRegister(qconsts.bits_w, "rho")
     anc5 = QuantumRegister(2, "anc5")  # |0>
 
     qc = QuantumCircuit(
@@ -51,12 +41,12 @@ def init_superposition_state(
         :bit幅に合わせて0.0-1.0を刻む補助関数:
         - 4bitの場合 0.3 -> 3 -> 0011にmapする
         """
-        return round(value * ((1 << bits_width) - 1))
+        return round(value * ((1 << qconsts.bits_w) - 1))
 
-    for j in range(N):  # Σ
-        xj, yj = xj_yj[j]
-        xh, yh = xh_yh[j]  # 古典ビット
-        rho = ρ[j]
+    for j in range(qconsts.N):  # Σ
+        xj, yj = qconsts.xj_yj[j]
+        xh, yh = qconsts.xh_yh[j]  # 古典ビット
+        rho = qconsts.ρ[j]
         basis_idx = (
             (_float_to_int(xj) << xj_offset)
             | (_float_to_int(xh) << xh_offset)
@@ -64,12 +54,14 @@ def init_superposition_state(
             | (_float_to_int(yh) << yh_offset)
             | (_float_to_int(rho) << rho_offset)
         )
-        state[basis_idx] += 1 / math.sqrt(N)  # 1/√N
+        state[basis_idx] += 1 / math.sqrt(qconsts.N)  # 1/√N
     qc.initialize(Statevector(state))
     return qc
 
 
-def compose_circuits(qc: QuantumCircuit, num_state_qubits: int):
+def compose_circuits(
+    qc: QuantumCircuit, num_state_qubits: int, qconstants: QuantumConstants
+):
     """
     ### 量子回路を定義する関数
     :qc: 量子回路のインスタンス
@@ -77,8 +69,8 @@ def compose_circuits(qc: QuantumCircuit, num_state_qubits: int):
 
     """
     # ゲートの定義
-    qft = QFT(num_qubits=N, insert_barriers=True)
-    qft_1 = QFT(num_qubits=N, inverse=True, insert_barriers=True)
+    qft = QFT(num_qubits=qconstants.N, insert_barriers=True)
+    qft_1 = QFT(num_qubits=qconstants.N, inverse=True, insert_barriers=True)
     adder = DraperQFTAdder(
         num_state_qubits=num_state_qubits, kind="half"
     )  # TODO - [調査] halfとfixedの違い?
@@ -111,9 +103,8 @@ def compose_circuits(qc: QuantumCircuit, num_state_qubits: int):
 
 
 def main():
-    clconstants = ClassicalConstants()
     qconstants = QuantumConstants()
-    qc = init_superposition_state(bits_width=qconstants.bits_w)
+    qc = init_superposition_state(qconsts=qconstants)
     qc.decompose().draw("mpl")
     plt.show()
 

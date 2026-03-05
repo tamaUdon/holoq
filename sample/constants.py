@@ -1,5 +1,6 @@
 import dataclasses
 import math
+import numpy as np
 
 
 @dataclasses.dataclass(frozen=True)
@@ -45,16 +46,16 @@ class QuantumConstants:
     :param a: 振幅 ※初期的な実装では不要?
     :type a: int (nm)
     :param ρ: 位相のリスト
-    :type ρ: list[float]
+    :type ρ: np.ndarray[float]
     :param xj_yj: 物体点の座標 (x,y)
-    :type xj_yj: list[int]
+    :type xj_yj: np.ndarray[int]
     :param xh_yh: ホログラムの座標 (x,y)
-    :type xh_yh: list[int]
+    :type xh_yh: np.ndarray[int]
     """
 
-    N = 4
+    N = 2
     bits_w = 2
     a = [1, 2, 3, 0]
-    ρ = [0.5, 0.25, 0.5, 0]  # 最後ρ=0 ... 位相の寄与なし=ダミー
-    xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
-    xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
+    ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし...ダミー
+    xj_yj = np.array([(0, 1), (0, 1)])
+    xh_yh = np.array([(0, 1), (0, 1)])
