@@ -25,15 +25,17 @@ def init_superposition_state(
 ) -> QuantumCircuit:
     xj_reg = QuantumRegister(bits_width, "xj")
     xh_reg = QuantumRegister(bits_width, "xh")
-    anc1 = QuantumRegister(2, "anc1")  # |0>|0>
+    anc1 = QuantumRegister(1, "anc1")  # |0>
+    anc2 = QuantumRegister(1, "anc2")  # |0>
     yj_reg = QuantumRegister(bits_width, "yj")
     yh_reg = QuantumRegister(bits_width, "yh")
-    anc2 = QuantumRegister(2, "anc2")  # |0>|0>
-    rho_reg = QuantumRegister(bits_width, "rho")
     anc3 = QuantumRegister(1, "anc3")  # |0>
+    anc4 = QuantumRegister(1, "anc4")  # |0>
+    rho_reg = QuantumRegister(bits_width, "rho")
+    anc5 = QuantumRegister(1, "anc5")  # |0>
 
     qc = QuantumCircuit(
-        xj_reg, xh_reg, anc1, yj_reg, yh_reg, anc2, rho_reg, anc3
+        xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
     )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0>
 
     xj_offset = qc.find_bit(xj_reg[0]).index
@@ -87,14 +89,33 @@ def compose_circuits(qc: QuantumCircuit, bits_w: int):
     )  # 入力:  𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)) -> 出力: |𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ)>  (QFTから実空間へ)
     # -- ここまでで量子ホログラムが計算できている --#
 
-    neg_xh = (1 << bits_w) - xh_i
-    xh_reg = qc.
-    xj_reg = qc.
+    # ゲートの定義
     adder = DraperQFTAdder(num_state_qubits=qc.num_qubits, kind="fixed")
     qft_1 = QFT(num_qubits=N, inverse=True)
     sqr = ...
-    mul = MultiplierGate(num_result_qubits=bits_w, num_state_qubits=qc.num_qubits + offset)
-    qc.append(adder, xh_reg + xj_reg)
+    mul = MultiplierGate(
+        num_result_qubits=bits_w, num_state_qubits=qc.num_qubits + offset
+    )
+
+    # 入力レジスタの定義
+    xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
+    neg_xh = (1 << bits_w) - xh_i  # 入力する値
+
+    # 量子回路の定義
+    qc.append(adder, xh_reg - xj_reg)  # xh - xj # TODO 負数の表現
+    qc.append(adder, yh_reg - yj_reg)  # yh - yj # TODO 結果をanc1,3に代入する
+    qc.append(qft_1, anc1)  # QFT_1
+    qc.append(qft_1, anc3)  # QFT_1 # TODO 結果をanc1,3に代入する(そのまま)
+    qc.append(sqr, anc1 ^ 2)  # φ(xhj^2)
+    qc.append(sqr, anc3 ^ 2)  # φ(yhj^2) # TODO 結果をanc2,**3**に代入する
+    qc.append(qft_1, anc2)  # QFT_1
+    qc.append(qft_1, anc3)  # QFT_1 # TODO 結果をanc2,**3**に代入する(そのまま)
+    qc.append(adder, anc2 + anc3)  # φ(xhj^2 + yhj^2) # TODO 結果をanc4に代入する
+    qc.append(qft_1, anc4)  # ρj # TODO 結果をrho_regに代入する
+    qc.append(mul, anc4, rho_reg)  # 𝜙(𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)) # TODO 結果をanc5に代入する
+    qc.append(qft_1, anc5)  # 𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2) # TODO 結果をanc5に代入する
+
+    # TODO ここで anc5 に対して T(・)
 
 
 def main():
@@ -113,6 +134,12 @@ if __name__ == "__main__":
 # ρ = [0.5, 0.25, 0.5, 0]  # 最後ρ=0なので位相の寄与なし=ダミー、という意味?
 # xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
 # xh_yh = [(0, 0), (1, 0), (0, 1), (1, 1)]
+
+# qc.qregs
+# [QuantumRegister(2, 'xj'), QuantumRegister(2, 'xh'),
+# QuantumRegister(2, 'anc1'), QuantumRegister(2, 'yj'),
+# QuantumRegister(2, 'yh'), QuantumRegister(2, 'anc2'),
+#  QuantumRegister(2, 'rho'), QuantumRegister(1, 'anc3')]
 
 # 1. 物体点数が1の場合で実装する
 # 3. QFT加算器をQiskitで作る方法を調べる、手計算 -> ok
