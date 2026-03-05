@@ -75,45 +75,36 @@ def compose_circuits(qc: QuantumCircuit, num_state_qubits: int):
     :num_state_qubits: 入力レジスタのビット数
 
     """
-    QFT(
-        num_qubits=2, inverse=True, insert_barriers=True
-    )  # 入力:|φ(xjh)>,|φ(yjh)> ->  出力: |xjh>, |yjh> (QFTから実空間へ)
-    DraperQFTAdder(
-        num_state_qubits=num_state_qubits, kind="half"
-    )  # 入力:a=|xj>|xh>, b=|yj>yh> -> 出力:|a>|φ(a+b)> (QFT空間へ)
-    QFT_SQR  # 入力:|xjh>, |yjh> -> 出力:|φ(x^2jh)>,|φ(y^2jh)> (QFT空間へ)
-    # TODO - SQRを実装する
-    MultiplierGate(
-        num_state_qubits=num_state_qubits, num_result_qubits=...
-    )  # 入力: |x^2jh + y^2jh>, |ρj> -> 出力: |𝜙(𝜌𝑗(𝑥^2𝑗ℎ+𝑦^2𝑗ℎ))> (QFT空間へ)
-    # -- ここまでで量子ホログラムが計算できている --#
-
     # ゲートの定義
-    adder = DraperQFTAdder(num_state_qubits=qc.num_qubits, kind="fixed")
-    qft_1 = QFT(num_qubits=N, inverse=True)
-    sqr = ...
-    mul = MultiplierGate(
-        num_result_qubits=bits_w, num_state_qubits=qc.num_qubits + offset
-    )
+    qft = QFT(num_qubits=N, insert_barriers=True)
+    qft_1 = QFT(num_qubits=N, inverse=True, insert_barriers=True)
+    adder = DraperQFTAdder(
+        num_state_qubits=num_state_qubits, kind="half"
+    )  # TODO - halfとfixedの違い?
+    mul = MultiplierGate(num_state_qubits=num_state_qubits, num_result_qubits=...)
+    sqr = mul  # TODO - SQRを実装する
 
     # 入力レジスタの定義
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
     # neg_xj = (1 << bits_w) - xj_i
     # neg_yj = (1 << bits_w) - yj_i # TODO - 入力値のxj,yjを負数にする
 
+    φ_0 = qft(0)  # TODO - qft(0)の値を計算しておく
+
     # 量子回路の定義
     qc.append(adder, xh_reg - xj_reg)  # xh - xj # TODO 負数の表現
     qc.append(adder, yh_reg - yj_reg)  # yh - yj # TODO 結果をanc1,3に代入する
     qc.append(qft_1, anc1)  # QFT_1
     qc.append(qft_1, anc3)  # QFT_1 # TODO 結果をanc1,3に代入する(そのまま)
-    qc.append(sqr, anc1 ^ 2)  # φ(xhj^2)
-    qc.append(sqr, anc3 ^ 2)  # φ(yhj^2) # TODO 結果をanc2,**3**に代入する
+    qc.append(mul, anc1 * φ_0)  # SQR # φ(xhj^2) # TODO anc1 * φ_0 (外積)
+    qc.append(mul, anc3 * φ_0)  # SQR # φ(yhj^2) # TODO 結果をanc2,**3**に代入する
     qc.append(qft_1, anc2)  # QFT_1
     qc.append(qft_1, anc3)  # QFT_1 # TODO 結果をanc2,**3**に代入する(そのまま)
     qc.append(adder, anc2 + anc3)  # φ(xhj^2 + yhj^2) # TODO 結果をanc4に代入する
     qc.append(qft_1, anc4)  # ρj # TODO 結果をrho_regに代入する
     qc.append(mul, anc4, rho_reg)  # 𝜙(𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)) # TODO 結果をanc5に代入する
     qc.append(qft_1, anc5)  # 𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2) # TODO 結果をanc5に代入する
+    # -- ここまでで量子ホログラムが計算できている --#
 
     # TODO ここで anc5 に対して T(・)
 
