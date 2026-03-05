@@ -5,7 +5,8 @@ import tqdm
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import Constants
+from constants import ClassicalConstants
+from constants import QuantumConstants
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.circuit import QuantumRegister
@@ -110,8 +111,9 @@ def compose_circuits(qc: QuantumCircuit, num_state_qubits: int):
 
 
 def main():
-    constants = Constants()
-    qc = init_superposition_state(bits_width=constants.bits_w)
+    clconstants = ClassicalConstants()
+    qconstants = QuantumConstants()
+    qc = init_superposition_state(bits_width=qconstants.bits_w)
     qc.decompose().draw("mpl")
     plt.show()
 
