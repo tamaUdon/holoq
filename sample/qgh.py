@@ -10,7 +10,13 @@ from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.circuit import QuantumRegister
 from qiskit.quantum_info import Statevector
-from qiskit.circuit.library import DraperQFTAdder, MultiplierGate, QFTGate, QFT, HGate
+from qiskit.circuit.library import (
+    DraperQFTAdder,
+    MultiplierGate,
+    QFT,
+    HGate,
+    RGQFTMultiplier,
+)
 
 
 def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
@@ -68,37 +74,54 @@ def compose_circuits(
     :num_state_qubits: 入力レジスタのビット数
 
     """
-    # ゲートの定義
-    qft = QFT(num_qubits=qconstants.N, insert_barriers=True)
-    qft_1 = QFT(num_qubits=qconstants.N, inverse=True, insert_barriers=True)
-    adder = DraperQFTAdder(
-        num_state_qubits=num_state_qubits, kind="half"
-    )  # TODO - [調査] halfとfixedの違い?
-    mul = MultiplierGate(num_state_qubits=num_state_qubits, num_result_qubits=...)
-    sqr = mul  # TODO - [実装]SQRを実装する
-
     # 入力レジスタの定義
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
     # neg_xj = (1 << bits_w) - xj_i
     # neg_yj = (1 << bits_w) - yj_i # TODO - [実装]入力値のxj,yjを負数にする
 
-    φ_0 = qft(0)  # TODO - [実装][調査]qft(0)の値を計算しておく
+    # ゲートの定義
+    qft = QFT(num_qubits=num_state_qubits, insert_barriers=True)
+    qft_1 = QFT(num_qubits=num_state_qubits, inverse=True, insert_barriers=True)
+    adder = DraperQFTAdder(num_state_qubits=num_state_qubits, kind="half")
+    mul = RGQFTMultiplier(
+        num_state_qubits=num_state_qubits, num_result_qubits=2 * num_state_qubits
+    )
+    sqr = RGQFTMultiplier(
+        num_state_qubits=num_state_qubits,
+        num_result_qubits=2 * num_state_qubits,
+        name="SQR_RGQFTMultiplier",
+    )
 
     # 量子回路の定義
-    qc.append(adder, xh_reg - xj_reg)  # xh - xj # TODO [実装]負数の表現
-    qc.append(adder, yh_reg - yj_reg)  # yh - yj # TODO [実装]結果をanc1,3に代入する
+    qc.append(adder, list(xh_reg) + list(xj_reg))  # xh - xj # TODO [実装]負数の表現
+    qc.append(
+        adder, list(yh_reg) + list(yj_reg)
+    )  # yh - yj # TODO [実装]結果をanc1,3に代入する
     qc.append(qft_1, anc1)  # QFT_1
     qc.append(qft_1, anc3)  # QFT_1 # TODO [実装]結果をanc1,3に代入する(そのまま)
-    qc.append(mul, anc1 * φ_0)  # SQR # φ(xhj^2) # TODO [実装]anc1 * φ_0 (外積)
-    qc.append(mul, anc3 * φ_0)  # SQR # φ(yhj^2) # TODO [実装]結果をanc2,**3**に代入する
+
+    scratch_reg = QuantumRegister(qconstants.bits_w, "scratch")
+    for i in range(num_state_qubits):
+        qc.cx(anc1[i], scratch_reg[i])  # |0> -> |anc1>にコピー
+    qc.append(
+        sqr, list(anc1) + list(scratch_reg) + list(anc2)
+    )  # SQR ... |a⟩|b⟩|0⟩ → |a⟩|b⟩|a×b⟩
+
+    qc.append(sqr, anc1)  # SQR # φ(xhj^2) # TODO [実装]anc1 * φ_0 (外積)
+    qc.append(sqr, anc3)  # SQR # φ(yhj^2) # TODO [実装]結果をanc2,**3**に代入する
+
     qc.append(qft_1, anc2)  # QFT_1
     qc.append(qft_1, anc3)  # QFT_1 # TODO [実装]結果をanc2,**3**に代入する(そのまま)
-    qc.append(adder, anc2 + anc3)  # φ(xhj^2 + yhj^2) # TODO [実装]結果をanc4に代入する
+
+    qc.append(
+        adder, list(anc2) + list(anc3)
+    )  # φ(xhj^2 + yhj^2) # TODO [実装]結果をanc4に代入する
     qc.append(qft_1, anc4)  # ρj # TODO [実装]結果をrho_regに代入する
-    qc.append(mul, anc4, rho_reg)  # 𝜙(𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)) # TODO [実装]結果をanc5に代入する
+    qc.append(
+        mul, list(anc4) + list(rho_reg)
+    )  # 𝜙(𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)) # TODO [実装]結果をanc5に代入する
     qc.append(qft_1, anc5)  # 𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2) # TODO [実装]結果をanc5に代入する
     # -- ここまでで量子ホログラムが計算できている --#
-
     # TODO ここで anc5 に対して T(・)
 
 
