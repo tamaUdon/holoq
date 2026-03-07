@@ -22,11 +22,11 @@ from qiskit.circuit.library import (
 def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    anc1 = QuantumRegister(qconsts.bits_w * 2, "anc1")  # |0>
+    anc1 = QuantumRegister(1, "anc1")  # |0>
     anc2 = QuantumRegister(qconsts.bits_w * 2, "anc2")  # |0>
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    anc3 = QuantumRegister(qconsts.bits_w, "anc3")  # |0>
+    anc3 = QuantumRegister(1, "anc3")  # |0>
     anc4 = QuantumRegister(qconsts.bits_w * 2, "anc4")  # |0>
     rho_reg = QuantumRegister(qconsts.bits_w, "rho")
     anc5 = QuantumRegister(qconsts.bits_w, "anc5")  # |0>
@@ -87,7 +87,7 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
 
     # ゲートの定義
     qft = QFT(num_qubits=qconsts.bits_w, insert_barriers=True)
-    qft_1 = QFT(num_qubits=qconsts.bits_w, inverse=True, insert_barriers=True)
+    qft_1 = QFT(num_qubits=1, inverse=True, insert_barriers=True)
     adder = DraperQFTAdder(num_state_qubits=qconsts.bits_w, kind="half")
     mul = RGQFTMultiplier(
         num_state_qubits=qconsts.bits_w, num_result_qubits=2 * qconsts.bits_w
@@ -119,7 +119,7 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
     #     qc.cx(anc1[i], scratch_reg[i])  # |0> -> |anc1>にコピー
     qc.append(
         sqr, list(anc1) + list(anc2), copy=True
-    )  # SQR ... |a⟩|b⟩|0⟩ → |a⟩|b⟩|a×b⟩
+    )  # SQR ... |a⟩|b⟩|0⟩ → |a⟩|b⟩|a×b⟩ # FIXME - qiskit.circuit.exceptions.CircuitError: 'The amount of qubit arguments 5 does not match the instruction expectation (8).'
     # SQR # φ(xhj^2) # TODO [実装]anc1 * φ_0 (外積)
     # SQR # φ(yhj^2) # TODO [実装]結果をanc2,**3**に代入する
 
