@@ -19,23 +19,29 @@ from qiskit.circuit.library import (
 )
 
 
+def define_regs(): ...
+
+
+def define_gates(): ...
+
+
 def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    anc1 = QuantumRegister(1, "anc1")
-    anc2 = QuantumRegister(7, "anc2")
+    anc1 = QuantumRegister(3, "anc1")
+    anc2 = QuantumRegister(6, "anc2")
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    anc3 = QuantumRegister(1, "anc3")
-    anc4 = QuantumRegister(3, "anc4")
+    anc3 = QuantumRegister(6, "anc3")
+    anc4 = QuantumRegister(7, "anc4")
     rho_reg = QuantumRegister(qconsts.bits_w, "rho")
-    anc5 = QuantumRegister(3, "anc5")
+    anc5 = QuantumRegister(10, "anc5")
 
     print("init reg")
 
     qc = QuantumCircuit(
         xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
-    )  # |xh>|0>|0>|yh>|0>|0>|ρj>|0>
+    )
 
     xj_offset = qc.find_bit(xj_reg[0]).index
     xh_offset = qc.find_bit(xh_reg[0]).index
@@ -86,47 +92,32 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
     # neg_yj = (1 << bits_w) - yj_i # TODO - [実装]入力値のxj,yjを負数にする
 
     # ゲートの定義
-    qft = QFT(num_qubits=qconsts.bits_w, insert_barriers=True)
-    qft_1 = QFT(num_qubits=1, inverse=True, insert_barriers=True)
-    qft_3 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
-    adder = DraperQFTAdder(num_state_qubits=qconsts.bits_w, kind="half")
-    adder_3 = DraperQFTAdder(num_state_qubits=3, kind="half")
-    mul = RGQFTMultiplier(
-        num_state_qubits=qconsts.bits_w, num_result_qubits=qconsts.bits_w * 2
-    )
+    qft_1 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
+    qft_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
+    adder = DraperQFTAdder(num_state_qubits=6, kind="half")
+    adder_3 = DraperQFTAdder(num_state_qubits=12, kind="half")
+    mul = RGQFTMultiplier(num_state_qubits=qconsts.bits_w, num_result_qubits=7)
     sqr = RGQFTMultiplier(
-        num_state_qubits=qconsts.bits_w,
+        num_state_qubits=12,
         name="SQR_RGQFTMultiplier",
     )
-    print(f"{qft_1=}")
-    print(f"{adder=}")
-    print(f"{mul=}")
-    print(f"{sqr=}")
 
     # 量子回路の定義
     qc.append(adder, list(xh_reg) + list(xj_reg) + list(anc1))
     qc.append(adder, list(yh_reg) + list(yj_reg) + list(anc3))
     qc.append(qft_1, anc1)
     qc.append(qft_1, anc3)
-
-    qc.append(sqr, list(anc1) + list(anc2), copy=True)
+    qc.append(sqr, list(anc1) + list(anc2))
     qc.append(
         sqr,
         list(anc3),
-        copy=True,
     )
-
     qc.append(qft_3, anc2)
     qc.append(qft_1, anc3)
-
-    qc.append(
-        adder_3, list(anc2) + list(anc3) + list(anc4)
-    )  # φ(xhj^2 + yhj^2) # 結果をanc4に代入する
-    qc.append(qft_3, anc4)  # ρj # TODO [実装]結果をrho_regに代入する
-    qc.append(
-        mul, list(anc4) + list(rho_reg) + list(anc5)
-    )  # 𝜙(𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)) # TODO [実装]結果をanc5に代入する
-    qc.append(qft_3, anc5)  # 𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)
+    qc.append(adder_3, list(anc2) + list(anc3) + list(anc4))
+    qc.append(qft_3, anc4)
+    qc.append(mul, list(anc4) + list(rho_reg) + list(anc5))
+    qc.append(qft_3, anc5)
     # TODO ここで anc5 に対して T(・)
 
     return qc
@@ -144,18 +135,11 @@ def main():
 if __name__ == "__main__":
     main()
 
-# qc.qregs
-# [QuantumRegister(2, 'xj'), QuantumRegister(2, 'xh'),
-# QuantumRegister(2, 'anc1'), QuantumRegister(2, 'yj'),
-# QuantumRegister(2, 'yh'), QuantumRegister(2, 'anc2'),
-#  QuantumRegister(2, 'rho'), QuantumRegister(1, 'anc3')]
+# 残り TODO
+# 1. anc1-5を自動的に決定する関数を作成する
 
-# 1. 論文フロー通りに回路を連結する
-#       xh−xj, yh−yj
-#       xhj^2, yhj^2
-#       xhj^2 + yhj^2
-#       ρj * (xhj^2 + yhj^2)
-#       ターゲットビットを抽出して測定する T() の処理
+# 実装順
+# 1. ターゲットビットを抽出して測定する T() の処理
 # 2. 4量子ビットのテストケースを実装する
 #       論文にある値でok
 #       手計算と合うか確認する
