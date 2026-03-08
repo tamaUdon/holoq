@@ -34,7 +34,7 @@ def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
     anc3 = QuantumRegister(6, "anc3")
     anc4 = QuantumRegister(7, "anc4")
-    rho_reg = QuantumRegister(qconsts.bits_w, "rho")
+    rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
     anc5 = QuantumRegister(10, "anc5")
 
     print("init reg")
@@ -79,6 +79,9 @@ def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
     return qc
 
 
+def T(): ...
+
+
 def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCircuit:
     """
     ### 量子回路を定義する関数
@@ -96,7 +99,7 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
     qft_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
     adder = DraperQFTAdder(num_state_qubits=6, kind="half")
     adder_3 = DraperQFTAdder(num_state_qubits=12, kind="half")
-    mul = RGQFTMultiplier(num_state_qubits=qconsts.bits_w, num_result_qubits=7)
+    mul = RGQFTMultiplier(num_state_qubits=7, num_result_qubits=7)
     sqr = RGQFTMultiplier(
         num_state_qubits=12,
         name="SQR_RGQFTMultiplier",
@@ -139,6 +142,7 @@ if __name__ == "__main__":
 # 1. anc1-5を自動的に決定する関数を作成する
 
 # 実装順
+# 0. 2量子ビットだとMacBookProではメモリ不足. デスクトップかColabでやり直す
 # 1. ターゲットビットを抽出して測定する T() の処理
 # 2. 4量子ビットのテストケースを実装する
 #       論文にある値でok
