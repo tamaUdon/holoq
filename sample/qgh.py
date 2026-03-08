@@ -22,14 +22,14 @@ from qiskit.circuit.library import (
 def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    anc1 = QuantumRegister(1, "anc1")  # |0>
-    anc2 = QuantumRegister(qconsts.bits_w * 2, "anc2")  # |0>
+    anc1 = QuantumRegister(1, "anc1")
+    anc2 = QuantumRegister(7, "anc2")
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    anc3 = QuantumRegister(1, "anc3")  # |0>
-    anc4 = QuantumRegister(qconsts.bits_w * 2, "anc4")  # |0>
+    anc3 = QuantumRegister(1, "anc3")
+    anc4 = QuantumRegister(3, "anc4")
     rho_reg = QuantumRegister(qconsts.bits_w, "rho")
-    anc5 = QuantumRegister(qconsts.bits_w, "anc5")  # |0>
+    anc5 = QuantumRegister(3, "anc5")
 
     print("init reg")
 
@@ -88,13 +88,14 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
     # ゲートの定義
     qft = QFT(num_qubits=qconsts.bits_w, insert_barriers=True)
     qft_1 = QFT(num_qubits=1, inverse=True, insert_barriers=True)
+    qft_3 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
     adder = DraperQFTAdder(num_state_qubits=qconsts.bits_w, kind="half")
+    adder_3 = DraperQFTAdder(num_state_qubits=3, kind="half")
     mul = RGQFTMultiplier(
-        num_state_qubits=qconsts.bits_w, num_result_qubits=2 * qconsts.bits_w
+        num_state_qubits=qconsts.bits_w, num_result_qubits=qconsts.bits_w * 2
     )
     sqr = RGQFTMultiplier(
         num_state_qubits=qconsts.bits_w,
-        num_result_qubits=2 * qconsts.bits_w,
         name="SQR_RGQFTMultiplier",
     )
     print(f"{qft_1=}")
@@ -103,38 +104,29 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
     print(f"{sqr=}")
 
     # 量子回路の定義
-    qc.append(
-        adder, list(xh_reg) + list(xj_reg) + list(anc1)
-    )  # xh - xj # TODO [実装]負数の表現
-    qc.append(
-        adder, list(yh_reg) + list(yj_reg) + list(anc3)
-    )  # yh - yj # TODO [実装]結果をanc1,3に代入する
-    qc.append(qft_1, anc1)  # QFT_1
-    qc.append(qft_1, anc3)  # QFT_1 # TODO [実装]結果をanc1,3に代入する(そのまま)
+    qc.append(adder, list(xh_reg) + list(xj_reg) + list(anc1))
+    qc.append(adder, list(yh_reg) + list(yj_reg) + list(anc3))
+    qc.append(qft_1, anc1)
+    qc.append(qft_1, anc3)
 
-    scratch_reg = QuantumRegister(qconsts.bits_w * 2, "scratch")
-    qc.add_register(scratch_reg)
-
-    # for i in range(num_state_qubits):
-    #     qc.cx(anc1[i], scratch_reg[i])  # |0> -> |anc1>にコピー
+    qc.append(sqr, list(anc1) + list(anc2), copy=True)
     qc.append(
-        sqr, list(anc1) + list(anc2), copy=True
-    )  # SQR ... |a⟩|b⟩|0⟩ → |a⟩|b⟩|a×b⟩ # FIXME - qiskit.circuit.exceptions.CircuitError: 'The amount of qubit arguments 5 does not match the instruction expectation (8).'
-    # SQR # φ(xhj^2) # TODO [実装]anc1 * φ_0 (外積)
-    # SQR # φ(yhj^2) # TODO [実装]結果をanc2,**3**に代入する
+        sqr,
+        list(anc3),
+        copy=True,
+    )
 
-    qc.append(qft_1, anc2)  # QFT_1
-    qc.append(qft_1, anc3)  # QFT_1 # TODO [実装]結果をanc2,**3**に代入する(そのまま)
+    qc.append(qft_3, anc2)
+    qc.append(qft_1, anc3)
 
     qc.append(
-        adder, list(anc2) + list(anc3)
-    )  # φ(xhj^2 + yhj^2) # TODO [実装]結果をanc4に代入する
-    qc.append(qft_1, anc4)  # ρj # TODO [実装]結果をrho_regに代入する
+        adder_3, list(anc2) + list(anc3) + list(anc4)
+    )  # φ(xhj^2 + yhj^2) # 結果をanc4に代入する
+    qc.append(qft_3, anc4)  # ρj # TODO [実装]結果をrho_regに代入する
     qc.append(
         mul, list(anc4) + list(rho_reg) + list(anc5)
     )  # 𝜙(𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)) # TODO [実装]結果をanc5に代入する
-    qc.append(qft_1, anc5)  # 𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2) # TODO [実装]結果をanc5に代入する
-    # -- ここまでで量子ホログラムが計算できている --#
+    qc.append(qft_3, anc5)  # 𝜌𝑗(𝑥𝑗ℎ2+𝑦𝑗ℎ2)
     # TODO ここで anc5 に対して T(・)
 
     return qc
