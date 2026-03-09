@@ -19,13 +19,7 @@ from qiskit.circuit.library import (
 )
 
 
-def define_regs(): ...
-
-
-def define_gates(): ...
-
-
-def init_superposition_state(qconsts: QuantumConstants, test=False) -> QuantumCircuit:
+def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
     anc1 = QuantumRegister(3, "anc1")
@@ -37,11 +31,30 @@ def init_superposition_state(qconsts: QuantumConstants, test=False) -> QuantumCi
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
     anc5 = QuantumRegister(10, "anc5")
 
-    print("init reg")
-
     qc = QuantumCircuit(
         xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
     )
+    return qc
+
+
+def define_gates() -> tuple:
+    # ゲートの定義
+    qft_1 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
+    qft_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
+    adder = DraperQFTAdder(num_state_qubits=6, kind="half")
+    adder_3 = DraperQFTAdder(num_state_qubits=12, kind="half")
+    mul = RGQFTMultiplier(num_state_qubits=7, num_result_qubits=7)
+    sqr = RGQFTMultiplier(
+        num_state_qubits=12,
+        name="SQR_RGQFTMultiplier",
+    )
+    return qft_1, qft_3, adder, adder_3, mul, sqr
+
+
+def init_superposition_state(
+    qc: QuantumCircuit, qconsts: QuantumConstants, test=False
+) -> QuantumCircuit:
+    xj_reg, xh_reg, _, _, yj_reg, yh_reg, _, _, rho_reg, _ = qc.qregs
 
     if test:
         qc.x(xh_reg[0])  # |01>
@@ -83,10 +96,7 @@ def init_superposition_state(qconsts: QuantumConstants, test=False) -> QuantumCi
     return qc
 
 
-def T(): ...
-
-
-def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCircuit:
+def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
     """
     ### 量子回路を定義する関数
     :qc: 量子回路のインスタンス
@@ -95,19 +105,8 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
 
     # 入力レジスタの定義
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
-    # neg_xj = (1 << bits_w) - xj_i
-    # neg_yj = (1 << bits_w) - yj_i # TODO - [実装]入力値のxj,yjを負数にする
-
-    # ゲートの定義
-    qft_1 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
-    qft_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
-    adder = DraperQFTAdder(num_state_qubits=6, kind="half")
-    adder_3 = DraperQFTAdder(num_state_qubits=12, kind="half")
-    mul = RGQFTMultiplier(num_state_qubits=7, num_result_qubits=7)
-    sqr = RGQFTMultiplier(
-        num_state_qubits=12,
-        name="SQR_RGQFTMultiplier",
-    )
+    qft_1, qft_3, adder, adder_3, mul, sqr = gates
+    # TODO - [実装]入力値のxj,yjを負数にする
 
     # 量子回路の定義
     qc.append(adder, list(xh_reg) + list(xj_reg) + list(anc1))
@@ -125,18 +124,25 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
     qc.append(qft_3, anc4)
     qc.append(mul, list(anc4) + list(rho_reg) + list(anc5))
     qc.append(qft_3, anc5)
-    # TODO ここで anc5 に対して T(・)
 
     return qc
 
 
+def T(): ...
+
+
 def main():
     qconstants = QuantumConstants()
-    qc = init_superposition_state(qconsts=qconstants, test=True)
+    gates = define_gates()
+    qc = define_regs(qconsts=qconstants)
+    qc = init_superposition_state(qc=qc, qconsts=qconstants, test=True)
     print("qc is initialized")
-    qc = compose_circuits(qc=qc, qconsts=qconstants)
+    qc = compose_circuits(qc=qc, gates=gates)
+
     qc.decompose().draw("mpl")
     plt.show()
+
+    # TODO ここで anc5 に対して T(・)
 
 
 if __name__ == "__main__":
