@@ -20,6 +20,7 @@ from qiskit.circuit.library import (
 
 
 def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
+    # レジスタの定義
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
     anc1 = QuantumRegister(3, "anc1")
@@ -29,7 +30,7 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     anc3 = QuantumRegister(6, "anc3")
     anc4 = QuantumRegister(7, "anc4")
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
-    anc5 = QuantumRegister(10, "anc5")
+    anc5 = QuantumRegister(8, "anc5")
 
     qc = QuantumCircuit(
         xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
@@ -39,16 +40,19 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
 
 def define_gates() -> tuple:
     # ゲートの定義
+    adder = DraperQFTAdder(num_state_qubits=2, kind="half")
+    adder_sum = DraperQFTAdder(num_state_qubits=6, kind="half")
     qft_1 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
-    qft_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
-    adder = DraperQFTAdder(num_state_qubits=6, kind="half")
-    adder_3 = DraperQFTAdder(num_state_qubits=12, kind="half")
-    mul = RGQFTMultiplier(num_state_qubits=7, num_result_qubits=7)
+    qft_2_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
+    qft_4 = QFT(num_qubits=7, inverse=True, insert_barriers=True)
+    qft_5 = QFT(num_qubits=8, inverse=True, insert_barriers=True)
+    mul = RGQFTMultiplier(num_state_qubits=7, num_result_qubits=8)
     sqr = RGQFTMultiplier(
-        num_state_qubits=12,
+        num_state_qubits=3,
+        num_result_qubits=6,
         name="SQR_RGQFTMultiplier",
     )
-    return qft_1, qft_3, adder, adder_3, mul, sqr
+    return adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr
 
 
 def init_superposition_state(
@@ -105,12 +109,16 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
 
     # 入力レジスタの定義
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
-    qft_1, qft_3, adder, adder_3, mul, sqr = gates
+    adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = gates
     # TODO - [実装]入力値のxj,yjを負数にする
 
     # 量子回路の定義
-    qc.append(adder, list(xh_reg) + list(xj_reg) + list(anc1))
-    qc.append(adder, list(yh_reg) + list(yj_reg) + list(anc3))
+    for n in range(2 - 1):  # xj_regの長さ分
+        qc.cx(xj_reg[n], anc1[n])  # xj -> anc1にコピー
+        qc.cx(yj_reg[n], anc3[n])  #  TODO -anc3 の下位3bitを一時利用する
+    qc.append(adder, list(xh_reg) + list(anc1))
+    qc.append(adder_sum, list(yh_reg) + list(anc3))
+
     qc.append(qft_1, anc1)
     qc.append(qft_1, anc3)
     qc.append(sqr, list(anc1) + list(anc2))
@@ -118,12 +126,12 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
         sqr,
         list(anc3),
     )
-    qc.append(qft_3, anc2)
-    qc.append(qft_1, anc3)
-    qc.append(adder_3, list(anc2) + list(anc3) + list(anc4))
-    qc.append(qft_3, anc4)
+    qc.append(qft_2_3, anc2)
+    qc.append(qft_2_3, anc3)
+    qc.append(adder_sum, list(anc2) + list(anc3) + list(anc4))
+    qc.append(qft_4, anc4)
     qc.append(mul, list(anc4) + list(rho_reg) + list(anc5))
-    qc.append(qft_3, anc5)
+    qc.append(qft_5, anc5)
 
     return qc
 
