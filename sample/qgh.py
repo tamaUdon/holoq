@@ -25,7 +25,7 @@ def define_regs(): ...
 def define_gates(): ...
 
 
-def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
+def init_superposition_state(qconsts: QuantumConstants, test=False) -> QuantumCircuit:
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
     anc1 = QuantumRegister(3, "anc1")
@@ -43,39 +43,43 @@ def init_superposition_state(qconsts: QuantumConstants) -> QuantumCircuit:
         xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
     )
 
-    xj_offset = qc.find_bit(xj_reg[0]).index
-    xh_offset = qc.find_bit(xh_reg[0]).index
-    yj_offset = qc.find_bit(yj_reg[0]).index
-    yh_offset = qc.find_bit(yh_reg[0]).index
-    rho_offset = qc.find_bit(rho_reg[0]).index
-    state = np.zeros(1 << qc.num_qubits, dtype=complex)
+    if test:
+        qc.x(xh_reg[0])  # |01>
+        qc.x(yh_reg[0])  # |01>
+        qc.x(rho_reg[0])  # |1>
+    else:
+        xj_offset = qc.find_bit(xj_reg[0]).index
+        xh_offset = qc.find_bit(xh_reg[0]).index
+        yj_offset = qc.find_bit(yj_reg[0]).index
+        yh_offset = qc.find_bit(yh_reg[0]).index
+        rho_offset = qc.find_bit(rho_reg[0]).index
+        state = np.zeros(1 << qc.num_qubits, dtype=complex)
 
-    print("calc offset")
+        print("calc offset")
 
-    def _float_to_int(value: float):
-        """
-        :bit幅に合わせて0.0-1.0を刻む補助関数:
-        - 4bitの場合 0.3 -> 3 -> 0011にmapする
-        """
-        return round(value * ((1 << qconsts.bits_w) - 1))
+        def _float_to_int(value: float):
+            """
+            :bit幅に合わせて0.0-1.0を刻む補助関数:
+            - 4bitの場合 0.3 -> 3 -> 0011にmapする
+            """
+            return round(value * ((1 << qconsts.bits_w) - 1))
 
-    for j in range(qconsts.N):  # Σ
-        xj, yj = qconsts.xj_yj[j]
-        xh, yh = qconsts.xh_yh[j]  # 古典ビット
-        rho = qconsts.ρ[j]
-        basis_idx = (
-            (_float_to_int(xj) << xj_offset)
-            | (_float_to_int(xh) << xh_offset)
-            | (_float_to_int(yj) << yj_offset)
-            | (_float_to_int(yh) << yh_offset)
-            | (_float_to_int(rho) << rho_offset)
-        )
-        state[basis_idx] += 1 / math.sqrt(qconsts.N)  # 1/√N
+        for j in range(qconsts.N):  # Σ
+            xj, yj = qconsts.xj_yj[j]
+            xh, yh = qconsts.xh_yh[j]  # 古典ビット
+            rho = qconsts.ρ[j]
+            basis_idx = (
+                (_float_to_int(xj) << xj_offset)
+                | (_float_to_int(xh) << xh_offset)
+                | (_float_to_int(yj) << yj_offset)
+                | (_float_to_int(yh) << yh_offset)
+                | (_float_to_int(rho) << rho_offset)
+            )
+            state[basis_idx] += 1 / math.sqrt(qconsts.N)  # 1/√N
 
-    print("calc basis index")
+        print("calc basis index")
 
-    qc.initialize(Statevector(state))  # took long time
-    # TODO - qcの内容をhdf5などに一時保存する方法を調べる
+        qc.initialize(Statevector(state))  # took long time
     return qc
 
 
@@ -128,7 +132,7 @@ def compose_circuits(qc: QuantumCircuit, qconsts: QuantumConstants) -> QuantumCi
 
 def main():
     qconstants = QuantumConstants()
-    qc = init_superposition_state(qconsts=qconstants)
+    qc = init_superposition_state(qconsts=qconstants, test=True)
     print("qc is initialized")
     qc = compose_circuits(qc=qc, qconsts=qconstants)
     qc.decompose().draw("mpl")
@@ -142,7 +146,7 @@ if __name__ == "__main__":
 # 1. anc1-5を自動的に決定する関数を作成する
 
 # 実装順
-# 0. 2量子ビットだとMacBookProではメモリ不足. デスクトップかColabでやり直す
+# 0. 2量子ビットだとMacBookProではメモリ不足. デスクトップかColabでやり直す -> 2 PiB は乗らない
 # 1. ターゲットビットを抽出して測定する T() の処理
 # 2. 4量子ビットのテストケースを実装する
 #       論文にある値でok
