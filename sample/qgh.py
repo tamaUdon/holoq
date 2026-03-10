@@ -7,8 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from constants import QuantumConstants
 from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
-from qiskit.circuit import QuantumRegister
+from qiskit.circuit import QuantumRegister, ClassicalRegister
 from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import (
     DraperQFTAdder,
@@ -31,9 +30,10 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     anc4 = QuantumRegister(7, "anc4")
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
     anc5 = QuantumRegister(8, "anc5")
+    cl1 = ClassicalRegister(1, "cl1")
 
     qc = QuantumCircuit(
-        xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
+        xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5, cl1
     )
     return qc
 
@@ -100,7 +100,7 @@ def init_superposition_state(
     return qc
 
 
-def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
+def compose_circuits(qc: QuantumCircuit, gates: tuple, N: int) -> QuantumCircuit:
     """
     ### 量子回路を定義する関数
     :qc: 量子回路のインスタンス
@@ -108,6 +108,7 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
     """
 
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
+    cl1 = qc.clbits
     adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = gates
     # TODO - [実装]入力値のxj,yjを負数にする
 
@@ -139,10 +140,18 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
     qc.append(mul, list(anc4) + list(rho_reg) + list(anc5))
     qc.append(qft_5, anc5)
 
+    # 物体点数回 T(・)
+    counts = 0
+    for n in range(N):
+        qc.measure(qubit=anc5[0], cbit=cl1)  # TODO - result()? measure()?
+        # counts += (  # レジスタの1桁目が1の場合を数える
+        #     1 if int(cl1) == 1 else 0
+        # )  # TODO - int(cl1)はできない. 古典ビットに入った値を0か1で表現するには?
+        # TODO - cl1がずっと1なのが気になる
+        print(f"{cl1=}")
+        print(f"{counts=}")
+
     return qc
-
-
-def T(qc: QuantumCircuit): ...
 
 
 def main():
@@ -151,10 +160,8 @@ def main():
     qc = define_regs(qconsts=qconstants)
     qc = init_superposition_state(qc=qc, qconsts=qconstants, test=True)
     print("qc is initialized")
-    qc = compose_circuits(qc=qc, gates=gates)
+    qc = compose_circuits(qc=qc, gates=gates, N=qconstants.N)
     print(qc.draw("text"))  # 回路が巨大すぎて描画できないのでtext形式で出力する
-    # TODO ここで anc5 に対して T(・)
-    measured = T(qc)
 
 
 if __name__ == "__main__":
@@ -164,7 +171,6 @@ if __name__ == "__main__":
 # 1. anc1-5を自動的に決定する関数を作成する
 
 # 実装順
-# 0. プライベートブランチを生やす
 # 1. ターゲットビットを抽出して測定する T() の処理
 # 2. 測定結果の確認
 #       3点の場合をテストする
