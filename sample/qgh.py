@@ -123,8 +123,9 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
     # SQR -> QFT_1
     qc.append(sqr, list(anc1) + list(anc2))
     qc.append(sqr, list(anc3[:6]) + list(anc4[:6]))
+    qc.reset(anc3)
     for n in range(len(anc3[:6])):
-        qc.cx(anc4[:6], anc3[:6])  # anc4 -> anc3にコピー
+        qc.cx(anc4[n], anc3[n])  # anc4 -> anc3にコピー
     qc.append(qft_2_3, anc2)
     qc.append(qft_2_3, anc3[:6])
     qc.reset(anc4)  # anc4を次のADDのために空ける
@@ -141,7 +142,7 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
     return qc
 
 
-def T(): ...
+def T(qc: QuantumCircuit): ...
 
 
 def main():
@@ -151,11 +152,9 @@ def main():
     qc = init_superposition_state(qc=qc, qconsts=qconstants, test=True)
     print("qc is initialized")
     qc = compose_circuits(qc=qc, gates=gates)
-
-    qc.decompose().draw("mpl")
-    plt.show()
-
+    print(qc.draw("text"))  # 回路が巨大すぎて描画できないのでtext形式で出力する
     # TODO ここで anc5 に対して T(・)
+    measured = T(qc)
 
 
 if __name__ == "__main__":
@@ -165,11 +164,8 @@ if __name__ == "__main__":
 # 1. anc1-5を自動的に決定する関数を作成する
 
 # 実装順
-# 0. 2量子ビットだとMacBookProではメモリ不足. デスクトップかColabでやり直す -> 2 PiB は乗らない
+# 0. プライベートブランチを生やす
 # 1. ターゲットビットを抽出して測定する T() の処理
-# 2. 4量子ビットのテストケースを実装する
-#       論文にある値でok
-#       手計算と合うか確認する
-# 3. 測定結果の確認
+# 2. 測定結果の確認
 #       3点の場合をテストする
 #       古典計算、手計算の値と合うか確認する
