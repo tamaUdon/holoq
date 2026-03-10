@@ -23,11 +23,11 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     # レジスタの定義
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    anc1 = QuantumRegister(3, "anc1")
+    anc1 = QuantumRegister(6, "anc1")  # 3bitでよいがSQRに合わせて6bitにする
     anc2 = QuantumRegister(6, "anc2")
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    anc3 = QuantumRegister(6, "anc3")
+    anc3 = QuantumRegister(7, "anc3")  # 6bitでよいが最後のADDに合わせて7bitにする
     anc4 = QuantumRegister(7, "anc4")
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
     anc5 = QuantumRegister(8, "anc5")
@@ -107,29 +107,34 @@ def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
     :num_state_qubits: 入力レジスタのビット数
     """
 
-    # 入力レジスタの定義
     xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
     adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = gates
     # TODO - [実装]入力値のxj,yjを負数にする
 
-    # 量子回路の定義
-    for n in range(2 - 1):  # xj_regの長さ分
+    # ADD -> QFT_1
+    for n in range(len(xj_reg)):  # xj_regの長さ分
         qc.cx(xj_reg[n], anc1[n])  # xj -> anc1にコピー
-        qc.cx(yj_reg[n], anc3[n])  #  TODO -anc3 の下位3bitを一時利用する
-    qc.append(adder, list(xh_reg) + list(anc1))
-    qc.append(adder_sum, list(yh_reg) + list(anc3))
+        qc.cx(yj_reg[n], anc3[n])  # ビット数はyh_reg = xj_regの前提
+    qc.append(adder, list(xh_reg) + list(anc1)[:3])
+    qc.append(adder, list(yh_reg) + list(anc3)[:3])  # コピーした3つ分のみ取り出す
+    qc.append(qft_1, anc1[:3])
+    qc.append(qft_1, anc3[:3])
 
-    qc.append(qft_1, anc1)
-    qc.append(qft_1, anc3)
+    # SQR -> QFT_1
     qc.append(sqr, list(anc1) + list(anc2))
-    qc.append(
-        sqr,
-        list(anc3),
-    )
+    qc.append(sqr, list(anc3[:6]) + list(anc4[:6]))
+    for n in range(len(anc3[:6])):
+        qc.cx(anc4[:6], anc3[:6])  # anc4 -> anc3にコピー
     qc.append(qft_2_3, anc2)
-    qc.append(qft_2_3, anc3)
-    qc.append(adder_sum, list(anc2) + list(anc3) + list(anc4))
+    qc.append(qft_2_3, anc3[:6])
+    qc.reset(anc4)  # anc4を次のADDのために空ける
+
+    # ADD -> QFT_1
+    qc.append(adder_sum, list(anc2) + list(anc3))
+    qc.cx(anc3, anc4)  # anc3をanc4にコピー
     qc.append(qft_4, anc4)
+
+    # MUL -> QFT_1
     qc.append(mul, list(anc4) + list(rho_reg) + list(anc5))
     qc.append(qft_5, anc5)
 
