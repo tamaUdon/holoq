@@ -9,6 +9,7 @@ from constants import QuantumConstants
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
 from qiskit_aer import AerSimulator, Aer
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import (
@@ -60,7 +61,7 @@ def define_gates() -> tuple:
 def init_superposition_state(
     circuit: QuantumCircuit, qconsts: QuantumConstants, test=False
 ) -> QuantumCircuit:
-    xj_reg, xh_reg, _, _, yj_reg, yh_reg, _, _, rho_reg, _ = qc.qregs
+    xj_reg, xh_reg, _, _, yj_reg, yh_reg, _, _, rho_reg, _ = circuit.qregs
 
     if test:
         circuit.x(xh_reg[0])  # |01>
@@ -150,14 +151,50 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple, N: int) -> QuantumC
     return circuit
 
 
+def execute(circuit: QuantumCircuit):
+    # 回路をシミュレート
+    simulator = AerSimulator(
+        method="matrix_product_state"
+    )  # MEMO - StateVectorで検証すると動かなかったのでMPSで試した
+    # MEMO - n_qbits=49: 2^49 × 16 bytes ... 8 PiB
+    transpiled_circuit = transpile(
+        circuit,
+        simulator,
+        coupling_map=None,  # WARNING - ロジック検証用, ハードウェアの仮定なし, 実機でのデバッグ時は指定必須
+        optimization_level=3,  # 回路が大きいので最適化レベルを最高値に設定
+    )
+    job = simulator.run(transpiled_circuit, shots=6)
+    result = job.result()
+    counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
+
+    print(f"Measurement counts (binary strings): {counts}")
+
+    integer_counts = {}
+    for binary_string, count in counts.items():
+        print(f"{binary_string=}")  # 1,0のような文字列が入っている
+        integer_value = int(binary_string, 2)
+        integer_counts[integer_value] = count
+
+    print(f"Measurement counts (integers): {integer_counts}")
+
+
 def main():
     qconstants = QuantumConstants()
     gates = define_gates()
-    qc = define_regs(qconsts=qconstants)
-    qc = init_superposition_state(circuit=qc, qconsts=qconstants, test=True)
+    circuit = define_regs(qconsts=qconstants)
+    circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=True)
+
     print("qc is initialized")
-    qc = compose_circuits(circuit=qc, qgates=gates, N=qconstants.N)
-    print(qc.draw("text"))  # 回路が巨大すぎて描画できないのでtext形式で出力する
+
+    circuit = compose_circuits(circuit=circuit, qgates=gates, N=qconstants.N)
+
+    print(circuit.draw("text"))
+
+    start = time.time()
+    execute(circuit=circuit)
+    end = time.time()
+
+    print(f" Execution took {end - start} seconds.")
 
 
 if __name__ == "__main__":
@@ -165,9 +202,5 @@ if __name__ == "__main__":
 
 # 残り TODO
 # 1. anc1-5を自動的に決定する関数を作成する
-
-# 実装順
-# 1. ターゲットビットを抽出して測定する T() の処理
 # 2. 測定結果の確認
-#       3点の場合をテストする
 #       古典計算、手計算の値と合うか確認する
