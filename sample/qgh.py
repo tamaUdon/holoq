@@ -167,15 +167,7 @@ def execute(circuit: QuantumCircuit):
     result = job.result()
     counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
 
-    print(f"Measurement counts (binary strings): {counts}")
-
-    integer_counts = {}
-    for binary_string, count in counts.items():
-        print(f"{binary_string=}")  # 1,0のような文字列が入っている
-        integer_value = int(binary_string, 2)
-        integer_counts[integer_value] = count
-
-    print(f"Measurement counts (integers): {integer_counts}")
+    return counts
 
 
 def main():
@@ -191,10 +183,26 @@ def main():
     print(circuit.draw("text"))
 
     start = time.time()
-    execute(circuit=circuit)
+    counts = execute(circuit=circuit)
     end = time.time()
 
     print(f" Execution took {end - start} seconds.")
+
+    integer_counts = {}
+    for binary_string, count in counts.items():
+        print(f"{binary_string=}")  # 1,0のような文字列が入っている
+        integer_value = int(binary_string, 2)
+        integer_counts[integer_value] = count
+
+    print(f"Measurement counts (binary strings): {counts}")
+    print(f"Measurement counts (integers): {integer_counts}")
+
+    plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
+    plt.xlabel("Value")
+    plt.ylabel("Count")
+    plt.title("Measurement result")
+    plt.xticks(list(integer_counts.keys()))
+    plt.show()
 
 
 if __name__ == "__main__":
