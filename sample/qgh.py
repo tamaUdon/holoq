@@ -6,9 +6,11 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from constants import QuantumConstants
-from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
-from qiskit.circuit import QuantumRegister
+from qiskit import QuantumCircuit, transpile
+from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
+from qiskit_aer import AerSimulator, Aer
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
 from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import (
     DraperQFTAdder,
@@ -23,17 +25,18 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     # レジスタの定義
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    anc1 = QuantumRegister(6, "anc1")  # 3bitでよいがSQRに合わせて6bitにする
-    anc2 = QuantumRegister(6, "anc2")
+    anc1 = AncillaRegister(6, "anc1")  # 3bitでよいがSQRに合わせて6bitにする
+    anc2 = AncillaRegister(6, "anc2")
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    anc3 = QuantumRegister(7, "anc3")  # 6bitでよいが最後のADDに合わせて7bitにする
-    anc4 = QuantumRegister(7, "anc4")
+    anc3 = AncillaRegister(7, "anc3")  # 6bitでよいが最後のADDに合わせて7bitにする
+    anc4 = AncillaRegister(7, "anc4")
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
-    anc5 = QuantumRegister(8, "anc5")
+    anc5 = AncillaRegister(8, "anc5")
+    cl1 = ClassicalRegister(1, "cl1")
 
     qc = QuantumCircuit(
-        xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5
+        xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5, cl1
     )
     return qc
 
@@ -56,21 +59,21 @@ def define_gates() -> tuple:
 
 
 def init_superposition_state(
-    qc: QuantumCircuit, qconsts: QuantumConstants, test=False
+    circuit: QuantumCircuit, qconsts: QuantumConstants, test=False
 ) -> QuantumCircuit:
-    xj_reg, xh_reg, _, _, yj_reg, yh_reg, _, _, rho_reg, _ = qc.qregs
+    xj_reg, xh_reg, _, _, yj_reg, yh_reg, _, _, rho_reg, _ = circuit.qregs
 
     if test:
-        qc.x(xh_reg[0])  # |01>
-        qc.x(yh_reg[0])  # |01>
-        qc.x(rho_reg[0])  # |1>
+        circuit.x(xh_reg[0])  # |01>
+        circuit.x(yh_reg[0])  # |01>
+        circuit.x(rho_reg[0])  # |1>
     else:
-        xj_offset = qc.find_bit(xj_reg[0]).index
-        xh_offset = qc.find_bit(xh_reg[0]).index
-        yj_offset = qc.find_bit(yj_reg[0]).index
-        yh_offset = qc.find_bit(yh_reg[0]).index
-        rho_offset = qc.find_bit(rho_reg[0]).index
-        state = np.zeros(1 << qc.num_qubits, dtype=complex)
+        xj_offset = circuit.find_bit(xj_reg[0]).index
+        xh_offset = circuit.find_bit(xh_reg[0]).index
+        yj_offset = circuit.find_bit(yj_reg[0]).index
+        yh_offset = circuit.find_bit(yh_reg[0]).index
+        rho_offset = circuit.find_bit(rho_reg[0]).index
+        state = np.zeros(1 << circuit.num_qubits, dtype=complex)
 
         print("calc offset")
 
@@ -96,65 +99,110 @@ def init_superposition_state(
 
         print("calc basis index")
 
-        qc.initialize(Statevector(state))  # took long time
-    return qc
+        circuit.initialize(Statevector(state))  # took long time
+    return circuit
 
 
-def compose_circuits(qc: QuantumCircuit, gates: tuple) -> QuantumCircuit:
+def compose_circuits(circuit: QuantumCircuit, qgates: tuple, N: int) -> QuantumCircuit:
     """
     ### 量子回路を定義する関数
-    :qc: 量子回路のインスタンス
+    :circuit: 量子回路のインスタンス
     :num_state_qubits: 入力レジスタのビット数
     """
 
-    xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = qc.qregs
-    adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = gates
+    xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = (
+        circuit.qregs
+    )
+    cl1 = circuit.cregs
+    adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = qgates
     # TODO - [実装]入力値のxj,yjを負数にする
 
     # ADD -> QFT_1
     for n in range(len(xj_reg)):  # xj_regの長さ分
-        qc.cx(xj_reg[n], anc1[n])  # xj -> anc1にコピー
-        qc.cx(yj_reg[n], anc3[n])  # ビット数はyh_reg = xj_regの前提
-    qc.append(adder, list(xh_reg) + list(anc1)[:3])
-    qc.append(adder, list(yh_reg) + list(anc3)[:3])  # コピーした3つ分のみ取り出す
-    qc.append(qft_1, anc1[:3])
-    qc.append(qft_1, anc3[:3])
+        circuit.cx(xj_reg[n], anc1[n])  # xj -> anc1にコピー
+        circuit.cx(yj_reg[n], anc3[n])  # ビット数はyh_reg = xj_regの前提
+    circuit.append(adder, list(xh_reg) + list(anc1)[:3])
+    circuit.append(adder, list(yh_reg) + list(anc3)[:3])  # コピーした3つ分のみ取り出す
+    circuit.append(qft_1, anc1[:3])
+    circuit.append(qft_1, anc3[:3])
 
     # SQR -> QFT_1
-    qc.append(sqr, list(anc1) + list(anc2))
-    qc.append(sqr, list(anc3[:6]) + list(anc4[:6]))
-    qc.reset(anc3)
+    circuit.append(sqr, list(anc1) + list(anc2))
+    circuit.append(sqr, list(anc3[:6]) + list(anc4[:6]))
+    circuit.reset(anc3)
     for n in range(len(anc3[:6])):
-        qc.cx(anc4[n], anc3[n])  # anc4 -> anc3にコピー
-    qc.append(qft_2_3, anc2)
-    qc.append(qft_2_3, anc3[:6])
-    qc.reset(anc4)  # anc4を次のADDのために空ける
+        circuit.cx(anc4[n], anc3[n])  # anc4 -> anc3にコピー
+    circuit.append(qft_2_3, anc2)
+    circuit.append(qft_2_3, anc3[:6])
+    circuit.reset(anc4)  # anc4を次のADDのために空ける
 
     # ADD -> QFT_1
-    qc.append(adder_sum, list(anc2) + list(anc3))
-    qc.cx(anc3, anc4)  # anc3をanc4にコピー
-    qc.append(qft_4, anc4)
+    circuit.append(adder_sum, list(anc2) + list(anc3))
+    circuit.cx(anc3, anc4)  # anc3をanc4にコピー
+    circuit.append(qft_4, anc4)
 
     # MUL -> QFT_1
-    qc.append(mul, list(anc4) + list(rho_reg) + list(anc5))
-    qc.append(qft_5, anc5)
+    circuit.append(mul, list(anc4) + list(rho_reg) + list(anc5))
+    circuit.append(qft_5, anc5)
 
-    return qc
+    # MEASURE
+    circuit.measure(qubit=anc5[0], cbit=cl1[0])
+
+    return circuit
 
 
-def T(qc: QuantumCircuit): ...
+def execute(circuit: QuantumCircuit):
+    # 回路をシミュレート
+    simulator = AerSimulator(
+        method="matrix_product_state"
+    )  # MEMO - StateVectorで検証すると動かなかったのでMPSで試した
+    # MEMO - n_qbits=49: 2^49 × 16 bytes ... 8 PiB
+    transpiled_circuit = transpile(
+        circuit,
+        simulator,
+        coupling_map=None,  # WARNING - ロジック検証用, ハードウェアの仮定なし, 実機でのデバッグ時は指定必須
+        optimization_level=3,  # 回路が大きいので最適化レベルを最高値に設定
+    )
+    job = simulator.run(transpiled_circuit, shots=6)
+    result = job.result()
+    counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
+
+    return counts
 
 
 def main():
     qconstants = QuantumConstants()
     gates = define_gates()
-    qc = define_regs(qconsts=qconstants)
-    qc = init_superposition_state(qc=qc, qconsts=qconstants, test=True)
+    circuit = define_regs(qconsts=qconstants)
+    circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=True)
+
     print("qc is initialized")
-    qc = compose_circuits(qc=qc, gates=gates)
-    print(qc.draw("text"))  # 回路が巨大すぎて描画できないのでtext形式で出力する
-    # TODO ここで anc5 に対して T(・)
-    measured = T(qc)
+
+    circuit = compose_circuits(circuit=circuit, qgates=gates, N=qconstants.N)
+
+    print(circuit.draw("text"))
+
+    start = time.time()
+    counts = execute(circuit=circuit)
+    end = time.time()
+
+    print(f" Execution took {end - start} seconds.")
+
+    integer_counts = {}
+    for binary_string, count in counts.items():
+        print(f"{binary_string=}")  # 1,0のような文字列が入っている
+        integer_value = int(binary_string, 2)
+        integer_counts[integer_value] = count
+
+    print(f"Measurement counts (binary strings): {counts}")
+    print(f"Measurement counts (integers): {integer_counts}")
+
+    plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
+    plt.xlabel("Value")
+    plt.ylabel("Count")
+    plt.title("Measurement result")
+    plt.xticks(list(integer_counts.keys()))
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -162,10 +210,5 @@ if __name__ == "__main__":
 
 # 残り TODO
 # 1. anc1-5を自動的に決定する関数を作成する
-
-# 実装順
-# 0. プライベートブランチを生やす
-# 1. ターゲットビットを抽出して測定する T() の処理
 # 2. 測定結果の確認
-#       3点の場合をテストする
 #       古典計算、手計算の値と合うか確認する
