@@ -12,7 +12,7 @@ $ pip install uv
 $ uv sync
 ```
 
-### Get Started
+### Get Started (CGH)
 
 ```
 # 点群法のサンプルコードを実行する
@@ -24,6 +24,14 @@ $ uv run python ./sample/reconst_hologram.py
 
 <img width="800" height="94" alt="スクリーンショット 2025-11-28 4 09 12" src="https://github.com/user-attachments/assets/9eade545-98a2-45c7-81f2-09c1fa8d07dd" />
 
+### Get Started (QGH)
+
+```
+# QGHを実行する
+$ uv run python ./sample/qgh.py
+```
+
+<img width="500" alt="スクリーンショット 2026-03-11 22 52 15" src="https://github.com/user-attachments/assets/c46ffcff-862e-4aa9-9c65-d22de4c6b81e" /><br/>
 
 ### Output Sample
 - 生成されるホログラムの画像サンプル
@@ -40,7 +48,13 @@ $ uv run python ./sample/reconst_hologram.py
 #### Monopolar高速化手法によるホログラム
 <img width="400" alt="monopolar_hologram" src="https://github.com/user-attachments/assets/14f7b3aa-e23c-4c64-84ea-da0d2fe6db9a" />
 
+### QGH measuremet result sample 
+#### QGHの測定後、0|1の確率をプロットしたもの
+- 点群数2, 6shots
+
+<img width="400" height="480" alt="measured" src="https://github.com/user-attachments/assets/9257e576-1d19-4a50-a979-9f0623098be0" />
 <EOD>
+
 
 
 
