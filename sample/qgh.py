@@ -20,23 +20,44 @@ from qiskit.circuit.library import (
     RGQFTMultiplier,
 )
 
+TEST = True
 
-def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
+
+def define_regs(qconsts: QuantumConstants, test=False) -> QuantumCircuit:
     # レジスタの定義
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    anc1 = AncillaRegister(6, "anc1")  # 3bitでよいがSQRに合わせて6bitにする
-    anc2 = AncillaRegister(6, "anc2")
+    xhj_reg = AncillaRegister(3, "xhj")
+    xhj_b_reg = AncillaRegister(3, "xhj_b")
+    xhj_sq_reg = AncillaRegister(6, "xhj_sq_reg")
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    anc3 = AncillaRegister(7, "anc3")  # 6bitでよいが最後のADDに合わせて7bitにする
-    anc4 = AncillaRegister(7, "anc4")
+    yhj_reg = AncillaRegister(3, "yhj")  # 6bitでよいが最後のADDに合わせて7bitにする
+    yhj_b_reg = AncillaRegister(3, "yhj_b")  # 6bitでよいが最後のADDに合わせて7bitにする
+    yhj_sq_reg = AncillaRegister(7, "yhj_sq_reg")
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
-    anc5 = AncillaRegister(8, "anc5")
-    cl1 = ClassicalRegister(1, "cl1")
+    result = AncillaRegister(8, "result")
+    cl_result = None
+
+    if test:
+        cl_result = ClassicalRegister(8, "cl_full")
+    else:
+        cl_result = ClassicalRegister(1, "cl_result")
 
     qc = QuantumCircuit(
-        xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5, cl1
+        xj_reg,
+        xh_reg,
+        xhj_reg,
+        xhj_b_reg,
+        xhj_sq_reg,
+        yj_reg,
+        yh_reg,
+        yhj_reg,
+        yhj_b_reg,
+        yhj_sq_reg,
+        rho_reg,
+        result,
+        cl_result,
     )
     return qc
 
@@ -61,7 +82,20 @@ def define_gates() -> tuple:
 def init_superposition_state(
     circuit: QuantumCircuit, qconsts: QuantumConstants, test=False
 ) -> QuantumCircuit:
-    xj_reg, xh_reg, _, _, yj_reg, yh_reg, _, _, rho_reg, _ = circuit.qregs
+    (
+        xj_reg,
+        xh_reg,
+        xhj_reg,
+        xhj_b_reg,
+        xhj_sq_reg,
+        yj_reg,
+        yh_reg,
+        yhj_reg,
+        yhj_b_reg,
+        yhj_sq_reg,
+        rho_reg,
+        result,
+    ) = circuit.qregs
 
     if test:
         circuit.x(xh_reg[0])  # |01>
@@ -110,26 +144,44 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple, N: int) -> QuantumC
     :num_state_qubits: 入力レジスタのビット数
     """
 
-    xj_reg, xh_reg, anc1, anc2, yj_reg, yh_reg, anc3, anc4, rho_reg, anc5 = (
-        circuit.qregs
-    )
-    cl1 = circuit.cregs
+    (
+        xj_reg,
+        xh_reg,
+        xhj_reg,
+        xhj_b_reg,
+        xhj_sq_reg,
+        yj_reg,
+        yh_reg,
+        yhj_reg,
+        yhj_b_reg,
+        yhj_sq_reg,
+        rho_reg,
+        result,
+    ) = circuit.qregs
+    cl_result = circuit.cregs
     adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = qgates
     # TODO - [実装]入力値のxj,yjを負数にする
 
     # ADD -> QFT_1
     for n in range(len(xj_reg)):  # xj_regの長さ分
-        circuit.cx(xj_reg[n], anc1[n])  # xj -> anc1にコピー
-        circuit.cx(yj_reg[n], anc3[n])  # ビット数はyh_reg = xj_regの前提
-    circuit.append(adder, list(xh_reg) + list(anc1)[:3])
-    circuit.append(adder, list(yh_reg) + list(anc3)[:3])  # コピーした3つ分のみ取り出す
-    circuit.append(qft_1, anc1[:3])
-    circuit.append(qft_1, anc3[:3])
+        circuit.cx(xj_reg[n], xhj_reg[n])  # xj -> anc1にコピー
+        circuit.cx(yj_reg[n], yhj_reg[n])  # ビット数はyh_reg = xj_regの前提
+    circuit.append(adder.inverse(), list(xh_reg) + list(xhj_reg)[:3])  # 減算
+    circuit.append(
+        adder.inverse(),  # 減算
+        list(yh_reg) + list(yhj_reg),
+    )  # コピーした3つ分のみ取り出す
+    circuit.append(qft_1, xhj_reg)
+    circuit.append(qft_1, yhj_reg)
 
     # SQR -> QFT_1
+    for n in range(3):
+        circuit.cx(anc1[n], anc1[n + 3])  # anc1[0:3] -> anc1[4:6]にコピー
+        circuit.cx(yhj_reg[n], yhj_reg[n + 3])
     circuit.append(sqr, list(anc1) + list(anc2))
     circuit.append(sqr, list(anc3[:6]) + list(anc4[:6]))
     circuit.reset(anc3)
+
     for n in range(len(anc3[:6])):
         circuit.cx(anc4[n], anc3[n])  # anc4 -> anc3にコピー
     circuit.append(qft_2_3, anc2)
@@ -142,11 +194,12 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple, N: int) -> QuantumC
     circuit.append(qft_4, anc4)
 
     # MUL -> QFT_1
-    circuit.append(mul, list(anc4) + list(rho_reg) + list(anc5))
-    circuit.append(qft_5, anc5)
+    circuit.append(mul, list(anc4) + list(rho_reg) + list(anc5))  # TEST: anc5全体を計測
+    circuit.append(qft_5, result)
 
     # MEASURE
-    circuit.measure(qubit=anc5[0], cbit=cl1[0])
+    # circuit.measure(qubit=anc5[0], cbit=cl1[0])
+    circuit.measure_all()
 
     return circuit
 
@@ -173,8 +226,8 @@ def execute(circuit: QuantumCircuit):
 def main():
     qconstants = QuantumConstants()
     gates = define_gates()
-    circuit = define_regs(qconsts=qconstants)
-    circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=True)
+    circuit = define_regs(qconsts=qconstants, test=TEST)
+    circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=TEST)
 
     print("qc is initialized")
 
@@ -188,21 +241,23 @@ def main():
 
     print(f" Execution took {end - start} seconds.")
 
-    integer_counts = {}
-    for binary_string, count in counts.items():
-        print(f"{binary_string=}")  # 1,0のような文字列が入っている
-        integer_value = int(binary_string, 2)
-        integer_counts[integer_value] = count
+    print(f"{counts=}")
 
-    print(f"Measurement counts (binary strings): {counts}")
-    print(f"Measurement counts (integers): {integer_counts}")
+    # integer_counts = {}
+    # for binary_string, count in counts.items():
+    #     print(f"{binary_string=}")  # 1,0のような文字列が入っている
+    #     integer_value = int(binary_string, 2)
+    #     integer_counts[integer_value] = count
 
-    plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
-    plt.xlabel("Value")
-    plt.ylabel("Count")
-    plt.title("Measurement result")
-    plt.xticks(list(integer_counts.keys()))
-    plt.show()
+    # print(f"Measurement counts (binary strings): {counts}")
+    # print(f"Measurement counts (integers): {integer_counts}")
+
+    # plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
+    # plt.xlabel("Value")
+    # plt.ylabel("Count")
+    # plt.title("Measurement result")
+    # plt.xticks(list(integer_counts.keys()))
+    # plt.show()
 
 
 if __name__ == "__main__":
