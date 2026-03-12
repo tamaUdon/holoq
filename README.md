@@ -49,11 +49,12 @@ $ uv run python ./sample/qgh.py
 <img width="400" alt="monopolar_hologram" src="https://github.com/user-attachments/assets/14f7b3aa-e23c-4c64-84ea-da0d2fe6db9a" />
 
 ### Output Sample (QGH)
-#### QGHの測定後、0|1の確率をプロットしたもの
-- 点群数2, 6shots
+- QGHの測定後、0|1の確率をプロットしたもの
+#### 点群数2, 6shotsの場合のヒストグラム
 
 <img width="400" height="480" alt="measured" src="https://github.com/user-attachments/assets/9257e576-1d19-4a50-a979-9f0623098be0" />
 <EOD>
+
 
 
 
