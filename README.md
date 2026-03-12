@@ -33,7 +33,7 @@ $ uv run python ./sample/qgh.py
 
 <img width="500" alt="スクリーンショット 2026-03-11 22 52 15" src="https://github.com/user-attachments/assets/c46ffcff-862e-4aa9-9c65-d22de4c6b81e" /><br/>
 
-### Output Sample
+### Output Sample (CGH)
 - 生成されるホログラムの画像サンプル
 
 #### 1点（ゾーンプレート）
@@ -48,12 +48,13 @@ $ uv run python ./sample/qgh.py
 #### Monopolar高速化手法によるホログラム
 <img width="400" alt="monopolar_hologram" src="https://github.com/user-attachments/assets/14f7b3aa-e23c-4c64-84ea-da0d2fe6db9a" />
 
-### QGH measuremet result sample 
+### Output Sample (QGH)
 #### QGHの測定後、0|1の確率をプロットしたもの
 - 点群数2, 6shots
 
 <img width="400" height="480" alt="measured" src="https://github.com/user-attachments/assets/9257e576-1d19-4a50-a979-9f0623098be0" />
 <EOD>
+
 
 
 
