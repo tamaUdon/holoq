@@ -16,21 +16,35 @@ from qiskit.circuit.library import (
 )
 
 
+def _add_bitw(x):
+    return x + 1
+
+
+def _mul_bitw(x):
+    return x + x
+
+
 def define_regs(qconsts: QuantumConstants, test: bool) -> QuantumCircuit:
     # レジスタの定義
-    xj_reg = QuantumRegister(qconsts.bits_w, "xj")
-    xh_reg = QuantumRegister(qconsts.bits_w, "xh")
-    xhj_reg = AncillaRegister(3, "xhj")
-    xhj_b_reg = AncillaRegister(3, "xhj_b")
-    xhj_sq_reg = AncillaRegister(6, "xhj_sq_reg")
+    base = qconsts.bits_w  # 2
+    add_w = _add_bitw(base)  # 3
+    mul_w = _mul_bitw(add_w)  # 6
+    sq_w = _add_bitw(mul_w)  # 7
+    res_w = _add_bitw(sq_w)  # 8
+
+    xj_reg = QuantumRegister(base, "xj")
+    xh_reg = QuantumRegister(base, "xh")
+    xhj_reg = AncillaRegister(add_w, "xhj")
+    xhj_b_reg = AncillaRegister(add_w, "xhj_b")
+    xhj_sq_reg = AncillaRegister(mul_w, "xhj_sq_reg")
     yj_reg = QuantumRegister(qconsts.bits_w, "yj")
     yh_reg = QuantumRegister(qconsts.bits_w, "yh")
-    yhj_reg = AncillaRegister(3, "yhj")  # 6bitでよいが最後のADDに合わせて7bitにする
-    yhj_b_reg = AncillaRegister(3, "yhj_b")  # 6bitでよいが最後のADDに合わせて7bitにする
-    yhj_sq_reg = AncillaRegister(7, "yhj_sq_reg")
-    rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
-    result = AncillaRegister(8, "result")
-    cl_result = ClassicalRegister(8, "cl_result")
+    yhj_reg = AncillaRegister(add_w, "yhj")
+    yhj_b_reg = AncillaRegister(add_w, "yhj_b")
+    yhj_sq_reg = AncillaRegister(sq_w, "yhj_sq_reg")
+    rho_reg = QuantumRegister(sq_w, "rho")
+    result = AncillaRegister(res_w, "result")
+    cl_result = ClassicalRegister(res_w, "cl_result")
 
     qc = QuantumCircuit(
         xj_reg,
@@ -247,8 +261,7 @@ if __name__ == "__main__":
     main()
 
 # 残り TODO
-# 1. anc1-5を自動的に決定する関数を作成する
-# 2. 測定結果の確認
+# 1. 測定結果の確認
 #       古典計算、手計算の値と合うか確認する
-# 3. MULのextentionを作成しSQRにする
-# 4. デコレーターの実装. 関数の前後にログを出力する関数を作る
+# 2. MULのextentionを作成しSQRにする
+# 3. デコレーターの実装. 関数の前後にログを出力する関数を作る
