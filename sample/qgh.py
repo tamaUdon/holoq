@@ -8,15 +8,10 @@ import matplotlib.pyplot as plt
 from constants import QuantumConstants
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
-from qiskit_aer import AerSimulator, Aer
-from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-
+from qiskit_aer import AerSimulator
 from qiskit.quantum_info import Statevector
 from qiskit.circuit.library import (
     DraperQFTAdder,
-    MultiplierGate,
-    QFT,
-    HGate,
     RGQFTMultiplier,
 )
 
@@ -66,17 +61,13 @@ def define_gates() -> tuple:
     # ゲートの定義
     adder = DraperQFTAdder(num_state_qubits=2, kind="half")
     adder_sum = DraperQFTAdder(num_state_qubits=6, kind="half")
-    qft_1 = QFT(num_qubits=3, inverse=True, insert_barriers=True)
-    qft_2_3 = QFT(num_qubits=6, inverse=True, insert_barriers=True)
-    qft_4 = QFT(num_qubits=7, inverse=True, insert_barriers=True)
-    qft_5 = QFT(num_qubits=8, inverse=True, insert_barriers=True)
     mul = RGQFTMultiplier(num_state_qubits=7, num_result_qubits=8)
     sqr = RGQFTMultiplier(
         num_state_qubits=3,
         num_result_qubits=6,
         name="SQR_RGQFTMultiplier",
     )
-    return adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr
+    return adder, adder_sum, mul, sqr
 
 
 def init_superposition_state(
@@ -159,7 +150,7 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple) -> QuantumCircuit:
         result_reg,
     ) = circuit.qregs
     cl_result = circuit.cregs
-    adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = qgates
+    adder, adder_sum, mul, sqr = qgates
 
     # ⓪ Copy from xj to xhj, yj to yhj
     for n in range(len(xj_reg)):
@@ -175,29 +166,15 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple) -> QuantumCircuit:
         circuit.cx(xhj_reg[n], xhj_sub_reg[n])
         circuit.cx(yhj_reg[n], yhj_sub_reg[n])
 
-    # ①'' QFT_1
-    circuit.append(qft_1, xhj_sub_reg)
-    circuit.append(qft_1, yhj_sub_reg)
-
     # ② SQR
     circuit.append(sqr, list(xhj_reg) + list(xhj_sub_reg) + list(xhj_sq_reg))
     circuit.append(sqr, list(yhj_reg) + list(yhj_sub_reg) + list(yhj_sq_reg[:6]))
 
-    # ②'' QFT_1
-    circuit.append(qft_2_3, xhj_sq_reg)
-    circuit.append(qft_2_3, yhj_sq_reg[:6])
-
     # ③ ADD
     circuit.append(adder_sum, list(xhj_sq_reg) + list(yhj_sq_reg))
 
-    # ③' QFT_1
-    circuit.append(qft_4, yhj_sq_reg)
-
     # ④ MUL
     circuit.append(mul, list(yhj_sq_reg) + list(rho_reg) + list(result_reg))
-
-    # ④' QFT_1
-    circuit.append(qft_5, result_reg)
 
     # MEASURE
     if TEST:
@@ -217,7 +194,7 @@ def execute(circuit: QuantumCircuit):
         circuit,
         simulator,
         coupling_map=None,  # WARNING - ロジック検証用, ハードウェアの仮定なし, 実機でのデバッグ時は指定必須
-        optimization_level=3,  # 回路が大きいので最適化レベルを最高値に設定
+        optimization_level=1,
     )
     job = simulator.run(transpiled_circuit, shots=6)
     result = job.result()
