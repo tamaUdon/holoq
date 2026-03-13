@@ -85,16 +85,16 @@ def init_superposition_state(
     (
         xj_reg,
         xh_reg,
-        xhj_reg,
-        xhj_b_reg,
-        xhj_sq_reg,
+        _,
+        _,
+        _,
         yj_reg,
         yh_reg,
-        yhj_reg,
-        yhj_b_reg,
-        yhj_sq_reg,
+        _,
+        _,
+        _,
         rho_reg,
-        result,
+        _,
     ) = circuit.qregs
 
     if test:
@@ -137,7 +137,7 @@ def init_superposition_state(
     return circuit
 
 
-def compose_circuits(circuit: QuantumCircuit, qgates: tuple, N: int) -> QuantumCircuit:
+def compose_circuits(circuit: QuantumCircuit, qgates: tuple) -> QuantumCircuit:
     """
     ### 量子回路を定義する関数
     :circuit: 量子回路のインスタンス
@@ -148,59 +148,62 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple, N: int) -> QuantumC
         xj_reg,
         xh_reg,
         xhj_reg,
-        xhj_b_reg,
+        xhj_sub_reg,
         xhj_sq_reg,
         yj_reg,
         yh_reg,
         yhj_reg,
-        yhj_b_reg,
+        yhj_sub_reg,
         yhj_sq_reg,
         rho_reg,
-        result,
+        result_reg,
     ) = circuit.qregs
     cl_result = circuit.cregs
     adder, adder_sum, qft_1, qft_2_3, qft_4, qft_5, mul, sqr = qgates
-    # TODO - [実装]入力値のxj,yjを負数にする
 
-    # ADD -> QFT_1
-    for n in range(len(xj_reg)):  # xj_regの長さ分
-        circuit.cx(xj_reg[n], xhj_reg[n])  # xj -> anc1にコピー
-        circuit.cx(yj_reg[n], yhj_reg[n])  # ビット数はyh_reg = xj_regの前提
-    circuit.append(adder.inverse(), list(xh_reg) + list(xhj_reg)[:3])  # 減算
-    circuit.append(
-        adder.inverse(),  # 減算
-        list(yh_reg) + list(yhj_reg),
-    )  # コピーした3つ分のみ取り出す
-    circuit.append(qft_1, xhj_reg)
-    circuit.append(qft_1, yhj_reg)
+    # ⓪ Copy from xj to xhj, yj to yhj
+    for n in range(len(xj_reg)):
+        circuit.cx(xj_reg[n], xhj_reg[n])
+        circuit.cx(yj_reg[n], yhj_reg[n])  # ビット数はyh_reg = xj_regとする
 
-    # SQR -> QFT_1
-    for n in range(3):
-        circuit.cx(anc1[n], anc1[n + 3])  # anc1[0:3] -> anc1[4:6]にコピー
-        circuit.cx(yhj_reg[n], yhj_reg[n + 3])
-    circuit.append(sqr, list(anc1) + list(anc2))
-    circuit.append(sqr, list(anc3[:6]) + list(anc4[:6]))
-    circuit.reset(anc3)
+    # ① ADD.inverse
+    circuit.append(adder.inverse(), list(xh_reg) + list(xhj_reg))
+    circuit.append(adder.inverse(), list(yh_reg) + list(yhj_reg))
 
-    for n in range(len(anc3[:6])):
-        circuit.cx(anc4[n], anc3[n])  # anc4 -> anc3にコピー
-    circuit.append(qft_2_3, anc2)
-    circuit.append(qft_2_3, anc3[:6])
-    circuit.reset(anc4)  # anc4を次のADDのために空ける
+    # ①' Copy from xhj to xhj_b, yhj tp yhj_b
+    for n in range(len(xhj_reg)):
+        circuit.cx(xhj_reg[n], xhj_sub_reg[n])
+        circuit.cx(yhj_reg[n], yhj_sub_reg[n])
 
-    # ADD -> QFT_1
-    circuit.append(adder_sum, list(anc2) + list(anc3))
-    circuit.cx(anc3, anc4)  # anc3をanc4にコピー
-    circuit.append(qft_4, anc4)
+    # ①'' QFT_1
+    circuit.append(qft_1, xhj_sub_reg)
+    circuit.append(qft_1, yhj_sub_reg)
 
-    # MUL -> QFT_1
-    circuit.append(mul, list(anc4) + list(rho_reg) + list(anc5))  # TEST: anc5全体を計測
-    circuit.append(qft_5, result)
+    # ② SQR
+    circuit.append(sqr, list(xhj_reg) + list(xhj_sub_reg) + list(xhj_sq_reg))
+    circuit.append(sqr, list(yhj_reg) + list(yhj_sub_reg) + list(yhj_sq_reg[:6]))
+
+    # ②'' QFT_1
+    circuit.append(qft_2_3, xhj_sq_reg)
+    circuit.append(qft_2_3, yhj_sq_reg[:6])
+
+    # ③ ADD
+    circuit.append(adder_sum, list(xhj_sq_reg) + list(yhj_sq_reg))
+
+    # ③' QFT_1
+    circuit.append(qft_4, yhj_sq_reg)
+
+    # ④ MUL
+    circuit.append(mul, list(yhj_sq_reg) + list(rho_reg) + list(result_reg))
+
+    # ④' QFT_1
+    circuit.append(qft_5, result_reg)
 
     # MEASURE
-    # circuit.measure(qubit=anc5[0], cbit=cl1[0])
-    circuit.measure_all()
-
+    if TEST:
+        circuit.measure_all()
+    else:
+        circuit.measure(qubit=result_reg[0], cbit=cl_result[0])
     return circuit
 
 
@@ -228,10 +231,7 @@ def main():
     gates = define_gates()
     circuit = define_regs(qconsts=qconstants, test=TEST)
     circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=TEST)
-
-    print("qc is initialized")
-
-    circuit = compose_circuits(circuit=circuit, qgates=gates, N=qconstants.N)
+    circuit = compose_circuits(circuit=circuit, qgates=gates)
 
     print(circuit.draw("text"))
 
@@ -241,23 +241,24 @@ def main():
 
     print(f" Execution took {end - start} seconds.")
 
-    print(f"{counts=}")
+    if TEST:
+        print(f"{counts=}")
+    else:
+        integer_counts = {}
+        for binary_string, count in counts.items():
+            print(f"{binary_string=}")  # 1,0のような文字列が入っている
+            integer_value = int(binary_string, 2)
+            integer_counts[integer_value] = count
 
-    # integer_counts = {}
-    # for binary_string, count in counts.items():
-    #     print(f"{binary_string=}")  # 1,0のような文字列が入っている
-    #     integer_value = int(binary_string, 2)
-    #     integer_counts[integer_value] = count
+        print(f"Measurement counts (binary strings): {counts}")
+        print(f"Measurement counts (integers): {integer_counts}")
 
-    # print(f"Measurement counts (binary strings): {counts}")
-    # print(f"Measurement counts (integers): {integer_counts}")
-
-    # plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
-    # plt.xlabel("Value")
-    # plt.ylabel("Count")
-    # plt.title("Measurement result")
-    # plt.xticks(list(integer_counts.keys()))
-    # plt.show()
+        plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
+        plt.xlabel("Value")
+        plt.ylabel("Count")
+        plt.title("Measurement result")
+        plt.xticks(list(integer_counts.keys()))
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -267,3 +268,5 @@ if __name__ == "__main__":
 # 1. anc1-5を自動的に決定する関数を作成する
 # 2. 測定結果の確認
 #       古典計算、手計算の値と合うか確認する
+# 3. MULのextentionを作成しSQRにする
+# 4. デコレーターの実装. 関数の前後にログを出力する関数を作る
