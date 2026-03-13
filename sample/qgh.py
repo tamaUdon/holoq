@@ -30,12 +30,7 @@ def define_regs(qconsts: QuantumConstants, test: bool) -> QuantumCircuit:
     yhj_sq_reg = AncillaRegister(7, "yhj_sq_reg")
     rho_reg = QuantumRegister(7, "rho")  # 1bitでよいがanc4と合わせる
     result = AncillaRegister(8, "result")
-    cl_result = None
-
-    if test:
-        cl_result = ClassicalRegister(8, "cl_full")
-    else:
-        cl_result = ClassicalRegister(1, "cl_result")
+    cl_result = ClassicalRegister(8, "cl_result")
 
     qc = QuantumCircuit(
         xj_reg,
@@ -87,8 +82,10 @@ def init_superposition_state(
     ) = circuit.qregs
 
     if test:
-        circuit.x(xh_reg[0])  # |01>
-        circuit.x(yh_reg[0])  # |01>
+        # circuit.x(xh_reg[0])  # |01>
+        # circuit.x(yh_reg[0])  # |01>
+        circuit.x(xj_reg[0])  # |01>
+        circuit.x(yj_reg[0])  # |01>
         circuit.x(rho_reg[0])  # |1>
     else:
         xj_offset = circuit.find_bit(xj_reg[0]).index
@@ -96,7 +93,9 @@ def init_superposition_state(
         yj_offset = circuit.find_bit(yj_reg[0]).index
         yh_offset = circuit.find_bit(yh_reg[0]).index
         rho_offset = circuit.find_bit(rho_reg[0]).index
-        state = np.zeros(1 << circuit.num_qubits, dtype=complex)
+        state = np.zeros(
+            1 << circuit.num_qubits, dtype=complex
+        )  # WARINIG - Memory Error! Numpy try to allocate 4.00 PiB...
 
         print("calc offset")
 
@@ -178,24 +177,30 @@ def compose_circuits(
 
     # MEASURE
     if test:
-        circuit.measure_all()
+        circuit.measure_all()  # 全てのビットを確認するとき
     else:
-        circuit.measure(qubit=result_reg[0], cbit=cl_result[0])
+        circuit.measure(qubit=result_reg[0], cbit=cl_result[0])  # T(・) 上位ビットのみ
     return circuit
 
 
 def execute(circuit: QuantumCircuit):
-    # 回路をシミュレート
+    """
+    ### 回路をシミュレートする関数
+
+    :param circuit: 量子回路のインスタンス
+    :param type: QuantumCircuit
+    """
     simulator = AerSimulator(
         method="matrix_product_state"
     )  # MEMO - StateVectorで検証すると動かなかったのでMPSで試した
-    # MEMO - n_qbits=49: 2^49 × 16 bytes ... 8 PiB
+
     transpiled_circuit = transpile(
         circuit,
         simulator,
         coupling_map=None,  # WARNING - ロジック検証用, ハードウェアの仮定なし, 実機でのデバッグ時は指定必須
         optimization_level=1,
     )
+
     job = simulator.run(transpiled_circuit, shots=6)
     result = job.result()
     counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
@@ -219,24 +224,23 @@ def main():
 
     print(f" Execution took {end - start} seconds.")
 
-    if TEST:
-        print(f"{counts=}")
-    else:
-        integer_counts = {}
-        for binary_string, count in counts.items():
-            print(f"{binary_string=}")  # 1,0のような文字列が入っている
-            integer_value = int(binary_string, 2)
-            integer_counts[integer_value] = count
+    print(f"{counts=}")
 
-        print(f"Measurement counts (binary strings): {counts}")
-        print(f"Measurement counts (integers): {integer_counts}")
+    integer_counts = {}
+    for binary_string, count in counts.items():
+        print(f"{binary_string=}")  # 1,0のような文字列が入っている
+        integer_value = int(binary_string[0], 2)
+        integer_counts[integer_value] = count
 
-        plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
-        plt.xlabel("Value")
-        plt.ylabel("Count")
-        plt.title("Measurement result")
-        plt.xticks(list(integer_counts.keys()))
-        plt.show()
+    print(f"Measurement counts (binary strings): {counts}")
+    print(f"Measurement counts (integers): {integer_counts}")
+
+    plt.bar(list(integer_counts.keys()), list(integer_counts.values()))
+    plt.xlabel("Value")
+    plt.ylabel("Count")
+    plt.title("Measurement result")
+    plt.xticks(list(integer_counts.keys()))
+    plt.show()
 
 
 if __name__ == "__main__":
