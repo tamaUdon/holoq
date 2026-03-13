@@ -17,18 +17,20 @@ from qiskit.circuit.library import (
 
 
 def _add_bitw(x):
+    # 加算のレジスタ幅
     return x + 1
 
 
-def _mul_bitw(x):
-    return x + x
+def _mul_bitw(x, y):
+    # 乗算のレジスタ幅
+    return x + y
 
 
 def define_regs(qconsts: QuantumConstants, test: bool) -> QuantumCircuit:
     # レジスタの定義
     base = qconsts.bits_w  # 2
     add_w = _add_bitw(base)  # 3
-    mul_w = _mul_bitw(add_w)  # 6
+    mul_w = _mul_bitw(add_w, add_w)  # 6
     sq_w = _add_bitw(mul_w)  # 7
     res_w = _add_bitw(sq_w)  # 8
 
