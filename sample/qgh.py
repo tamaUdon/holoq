@@ -15,10 +15,8 @@ from qiskit.circuit.library import (
     RGQFTMultiplier,
 )
 
-TEST = True
 
-
-def define_regs(qconsts: QuantumConstants, test=False) -> QuantumCircuit:
+def define_regs(qconsts: QuantumConstants, test: bool) -> QuantumCircuit:
     # レジスタの定義
     xj_reg = QuantumRegister(qconsts.bits_w, "xj")
     xh_reg = QuantumRegister(qconsts.bits_w, "xh")
@@ -128,7 +126,9 @@ def init_superposition_state(
     return circuit
 
 
-def compose_circuits(circuit: QuantumCircuit, qgates: tuple) -> QuantumCircuit:
+def compose_circuits(
+    circuit: QuantumCircuit, qgates: tuple, test: bool
+) -> QuantumCircuit:
     """
     ### 量子回路を定義する関数
     :circuit: 量子回路のインスタンス
@@ -177,7 +177,7 @@ def compose_circuits(circuit: QuantumCircuit, qgates: tuple) -> QuantumCircuit:
     circuit.append(mul, list(yhj_sq_reg) + list(rho_reg) + list(result_reg))
 
     # MEASURE
-    if TEST:
+    if test:
         circuit.measure_all()
     else:
         circuit.measure(qubit=result_reg[0], cbit=cl_result[0])
@@ -204,11 +204,12 @@ def execute(circuit: QuantumCircuit):
 
 
 def main():
+    TEST = True
     qconstants = QuantumConstants()
     gates = define_gates()
     circuit = define_regs(qconsts=qconstants, test=TEST)
     circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=TEST)
-    circuit = compose_circuits(circuit=circuit, qgates=gates)
+    circuit = compose_circuits(circuit=circuit, qgates=gates, test=TEST)
 
     print(circuit.draw("text"))
 
