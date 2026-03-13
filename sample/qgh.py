@@ -28,19 +28,19 @@ def _mul_bitw(x, y):
 
 def define_regs(qconsts: QuantumConstants, test: bool) -> QuantumCircuit:
     # レジスタの定義
-    base = qconsts.bits_w  # 2
-    add_w = _add_bitw(base)  # 3
+    base_w = qconsts.bits_w  # 2
+    add_w = _add_bitw(base_w)  # 3
     mul_w = _mul_bitw(add_w, add_w)  # 6
     sq_w = _add_bitw(mul_w)  # 7
     res_w = _add_bitw(sq_w)  # 8
 
-    xj_reg = QuantumRegister(base, "xj")
-    xh_reg = QuantumRegister(base, "xh")
+    xj_reg = QuantumRegister(base_w, "xj")
+    xh_reg = QuantumRegister(base_w, "xh")
     xhj_reg = AncillaRegister(add_w, "xhj")
     xhj_b_reg = AncillaRegister(add_w, "xhj_b")
     xhj_sq_reg = AncillaRegister(mul_w, "xhj_sq_reg")
-    yj_reg = QuantumRegister(qconsts.bits_w, "yj")
-    yh_reg = QuantumRegister(qconsts.bits_w, "yh")
+    yj_reg = QuantumRegister(base_w, "yj")
+    yh_reg = QuantumRegister(base_w, "yh")
     yhj_reg = AncillaRegister(add_w, "yhj")
     yhj_b_reg = AncillaRegister(add_w, "yhj_b")
     yhj_sq_reg = AncillaRegister(sq_w, "yhj_sq_reg")
