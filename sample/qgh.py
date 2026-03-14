@@ -1,11 +1,11 @@
 # 点群法で量子コンピュータ生成ホログラムを作る
 
 import time
-import tqdm
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import QuantumConstants
+from constants import QuantumConstants, ClassicalConstants
+from pointcloud import create_single_point
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
 from qiskit_aer import AerSimulator
@@ -103,6 +103,13 @@ def init_superposition_state(
         circuit.x(xj_reg[0])  # |01>
         circuit.x(yj_reg[0])  # |01>
         circuit.x(rho_reg[0])  # |1>
+
+        for i in range(qconsts.N):  # Σ
+            for j in range(qconsts.N):
+                xj, yj = qconsts.xj_yj[i][j]
+                xh, yh = qconsts.xh_yh[i][j]  # 古典ビット
+                rho = qconsts.ρ[i][j]
+
     else:
         xj_offset = circuit.find_bit(xj_reg[0]).index
         xh_offset = circuit.find_bit(xh_reg[0]).index
@@ -224,30 +231,12 @@ def execute(circuit: QuantumCircuit):
     return counts
 
 
-def main():
-    TEST = True
-    qconstants = QuantumConstants()
-    gates = define_gates()
-    circuit = define_regs(qconsts=qconstants, test=TEST)
-    circuit = init_superposition_state(circuit=circuit, qconsts=qconstants, test=TEST)
-    circuit = compose_circuits(circuit=circuit, qgates=gates, test=TEST)
-
-    print(circuit.draw("text"))
-
-    start = time.time()
-    counts = execute(circuit=circuit)
-    end = time.time()
-
-    print(f" Execution took {end - start} seconds.")
-
-    print(f"{counts=}")
-
+def show(counts: dict):
     integer_counts = {}
     for binary_string, count in counts.items():
         print(f"{binary_string=}")  # 1,0のような文字列が入っている
         integer_value = int(binary_string[0], 2)
         integer_counts[integer_value] = count
-
     print(f"Measurement counts (binary strings): {counts}")
     print(f"Measurement counts (integers): {integer_counts}")
 
@@ -257,6 +246,26 @@ def main():
     plt.title("Measurement result")
     plt.xticks(list(integer_counts.keys()))
     plt.show()
+
+
+def main():
+    start = time.time()
+    constants = QuantumConstants()
+
+    gates = define_gates()
+    circuit = define_regs(qconsts=constants, test=constants.TEST)
+    circuit = init_superposition_state(
+        circuit=circuit, qconsts=constants, test=constants.TEST
+    )
+    circuit = compose_circuits(circuit=circuit, qgates=gates, test=constants.TEST)
+    points = create_single_point(QuantumConstants)
+    print(circuit.draw("text"))
+
+    counts = execute(circuit=circuit)
+    end = time.time()
+    print(print("Cal time:{} sec".format(end - start)))
+
+    show(counts)
 
 
 if __name__ == "__main__":

@@ -4,10 +4,10 @@ import time
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import ClassicalConstants
+from constants import ClassicalConstants, QuantumConstants
 
 
-def create_single_point(constants: ClassicalConstants) -> np.ndarray:
+def create_single_point(constants: ClassicalConstants | QuantumConstants) -> np.ndarray:
     """
     create_single_point 1点の点群を作成する関数
 
@@ -25,7 +25,9 @@ def create_single_point(constants: ClassicalConstants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_small_opening(constants: ClassicalConstants, width: int = 10) -> np.ndarray:
+def create_small_opening(
+    constants: ClassicalConstants | QuantumConstants, width: int = 10
+) -> np.ndarray:
     """
     create_small_opening 小さな開口部の点群を作成する関数
 
@@ -53,7 +55,7 @@ def create_small_opening(constants: ClassicalConstants, width: int = 10) -> np.n
     return points
 
 
-def create_four_points(constants: ClassicalConstants) -> np.ndarray:
+def create_four_points(constants: ClassicalConstants | QuantumConstants) -> np.ndarray:
     """
     create_rect_points 4点の点群を作成する関数
 
@@ -74,7 +76,9 @@ def create_four_points(constants: ClassicalConstants) -> np.ndarray:
     return center + signs * half
 
 
-def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
+def create_rectangle_points(
+    constants: ClassicalConstants | QuantumConstants,
+) -> np.ndarray:
     """
     create_rectangle_points 四角形の点群を作成する関数
 
@@ -99,7 +103,9 @@ def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
     return rectangle
 
 
-def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.ndarray:
+def generate_hologram(
+    points: np.ndarray, constants: ClassicalConstants | QuantumConstants
+) -> np.ndarray:
     x = np.arange(constants.X, dtype=np.float64) * constants.pp
     y = np.arange(constants.Y, dtype=np.float64) * constants.pp
     xx, yy = np.meshgrid(x, y)
