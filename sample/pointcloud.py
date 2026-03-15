@@ -103,9 +103,7 @@ def create_rectangle_points(
     return rectangle
 
 
-def generate_hologram(
-    points: np.ndarray, constants: ClassicalConstants | QuantumConstants
-) -> np.ndarray:
+def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.ndarray:
     x = np.arange(constants.X, dtype=np.float64) * constants.pp
     y = np.arange(constants.Y, dtype=np.float64) * constants.pp
     xx, yy = np.meshgrid(x, y)

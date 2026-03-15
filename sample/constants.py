@@ -37,7 +37,7 @@ class ClassicalConstants:
 
 
 @dataclasses.dataclass(frozen=True)
-class QuantumConstants(ClassicalConstants):
+class QuantumConstants:
     """
     量子Constants の Docstring
 
@@ -53,6 +53,8 @@ class QuantumConstants(ClassicalConstants):
     :type xh_yh: np.ndarray[int]
     """
 
+    X = 512  # 画素X方向
+    Y = X
     TEST: bool = True
     b_width: int = 2
     shape: str = "point"  # "circle" | "square" | "point"
