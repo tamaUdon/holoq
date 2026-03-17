@@ -53,8 +53,6 @@ class QuantumConstants:
     :type xh_yh: np.ndarray[int]
     """
 
-    X = 512  # 画素X方向
-    Y = X
     TEST: bool = True
     b_width: int = 2
     shape: str = "point"  # "circle" | "square" | "point"

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from constants import ClassicalConstants, QuantumConstants
 
 
-def create_single_point(constants: ClassicalConstants | QuantumConstants) -> np.ndarray:
+def create_single_point(constants: ClassicalConstants) -> np.ndarray:
     """
     create_single_point 1点の点群を作成する関数
 

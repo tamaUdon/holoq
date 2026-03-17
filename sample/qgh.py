@@ -242,9 +242,10 @@ def execute(circuit: QuantumCircuit) -> int:
     return T
 
 
-def create_single_point(circuit: QuantumCircuit, constants: QuantumConstants):
-    # TODO - 古典値xh,yh,rho_jをXゲートでレジスタに埋め込む
+def embed_classical_value(circuit: QuantumCircuit, constants: QuantumConstants):
+    # TODO - 古典値xj, xh, yj, yh,rho_jをXゲートでレジスタに埋め込む
     # 古典ver
+
     for i in range(constants.N):  # Σ
         for j in range(constants.N):
             xj, yj = constants.xj_yj[i][j]
@@ -293,9 +294,11 @@ def show(hologram: np.ndarray) -> None:
 def main():
     start = time.time()
     constants = QuantumConstants()
+    cl_constants = ClassicalConstants()
 
-    points = create_single_point(constants)  # regs?
-    hologram_q = generate_hologram_q(points, constants)
+    points = create_single_point(constants=cl_constants)  # regs?
+    _ = embed_classical_value(constants=constants)
+    hologram_q = generate_hologram_q(_, constants)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
