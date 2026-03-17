@@ -83,69 +83,84 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     return qc
 
 
-# 重ね合わせを一旦回避しているので使わない
-# def init_superposition_state(
-#     circuit: QuantumCircuit, qconsts: QuantumConstants, test=False
-# ) -> QuantumCircuit:
-#     (
-#         xj_reg,
-#         xh_reg,
-#         _,
-#         _,
-#         _,
-#         yj_reg,
-#         yh_reg,
-#         _,
-#         _,
-#         _,
-#         rho_reg,
-#         _,
-#     ) = circuit.qregs
+def init_superposition_state(
+    circuit: QuantumCircuit, qconsts: QuantumConstants, test=False
+) -> QuantumCircuit:
+    (
+        xj_reg,
+        xh_reg,
+        _,
+        _,
+        _,
+        yj_reg,
+        yh_reg,
+        _,
+        _,
+        _,
+        rho_reg,
+        _,
+    ) = circuit.qregs
 
-#     if test:
-#         # circuit.x(xh_reg[0])  # |01>
-#         # circuit.x(yh_reg[0])  # |01>
-#         circuit.x(xj_reg[0])  # |01>
-#         circuit.x(yj_reg[0])  # |01>
-#         circuit.x(rho_reg[0])  # |1>
+    if test:
+        # circuit.x(xh_reg[0])  # |01>
+        # circuit.x(yh_reg[0])  # |01>
+        circuit.x(xj_reg[0])  # |01>
+        circuit.x(yj_reg[0])  # |01>
+        circuit.x(rho_reg[0])  # |1>
 
-#     else:
-#         ...
-#         # xj_offset = circuit.find_bit(xj_reg[0]).index
-#         # xh_offset = circuit.find_bit(xh_reg[0]).index
-#         # yj_offset = circuit.find_bit(yj_reg[0]).index
-#         # yh_offset = circuit.find_bit(yh_reg[0]).index
-#         # rho_offset = circuit.find_bit(rho_reg[0]).index
-#         # state = np.zeros(
-#         #     1 << circuit.num_qubits, dtype=complex
-#         # )  # WARINIG - Memory Error! Numpy try to allocate 4.00 PiB...
+        # 1. 古典値 xj, yjを Hadamerdゲートで重ね合わせにする
+        # 2. a, rhoをCNOTゲートで量子ビットに埋め込む -> aは一旦無視して計算する
+        # 3. xh, yhをCNOTゲートで量子ビットに埋め込む
 
-#         # print("calc offset")
+        # a_j = [1,2,3,0] # -> aは一旦無視して計算する
+        rho_j = [0.5,0.25,0.5,0] # 連続値をrho_jに書き込みたい場合?
+        xj_yj = [(0,0),(1,0),(0,1),(1,1)] # |00>, |01>, |10>, |11>として埋め込む
+        #xj_yj_rhoj = [(0,0,0.5),(1,0,0.25),(0,1,0.5),(1,1,0)]
 
-#         # def _float_to_int(value: float):
-#         #     """
-#         #     :bit幅に合わせて0.0-1.0を刻む補助関数:
-#         #     - 4bitの場合 0.3 -> 3 -> 0011にmapする
-#         #     """
-#         #     return round(value * ((1 << qconsts.bits_w) - 1))
+        circuit.h(xj_reg) # レジスタ全体にHadamardゲートを適用
+        circuit.h(yj_reg)
+        circuit.barrier()
+        circuit.cx(control_qubit=,target_qubit=rho_reg)
+        circuit.cx(control_qubit=,target_qubit=xh_reg[i])
+        circuit.cx(control_qubit=,target_qubit=yh_reg[i])
 
-#         # for j in range(qconsts.N):  # Σ
-#         #     xj, yj = qconsts.xj_yj[j]
-#         #     xh, yh = qconsts.xh_yh[j]  # 古典ビット
-#         #     rho = qconsts.ρ[j]
-#         #     basis_idx = (
-#         #         (_float_to_int(xj) << xj_offset)
-#         #         | (_float_to_int(xh) << xh_offset)
-#         #         | (_float_to_int(yj) << yj_offset)
-#         #         | (_float_to_int(yh) << yh_offset)
-#         #         | (_float_to_int(rho) << rho_offset)
-#         #     )
-#         #     state[basis_idx] += 1 / math.sqrt(qconsts.N)  # 1/√N
+    else:
+        ...
+        # xj_offset = circuit.find_bit(xj_reg[0]).index
+        # xh_offset = circuit.find_bit(xh_reg[0]).index
+        # yj_offset = circuit.find_bit(yj_reg[0]).index
+        # yh_offset = circuit.find_bit(yh_reg[0]).index
+        # rho_offset = circuit.find_bit(rho_reg[0]).index
+        # state = np.zeros(
+        #     1 << circuit.num_qubits, dtype=complex
+        # )  # WARINIG - Memory Error! Numpy try to allocate 4.00 PiB...
 
-#         # print("calc basis index")
+        # print("calc offset")
 
-#         # circuit.initialize(Statevector(state))  # took long time
-#     return circuit
+        # def _float_to_int(value: float):
+        #     """
+        #     :bit幅に合わせて0.0-1.0を刻む補助関数:
+        #     - 4bitの場合 0.3 -> 3 -> 0011にmapする
+        #     """
+        #     return round(value * ((1 << qconsts.bits_w) - 1))
+
+        # for j in range(qconsts.N):  # Σ
+        #     xj, yj = qconsts.xj_yj[j]
+        #     xh, yh = qconsts.xh_yh[j]  # 古典ビット
+        #     rho = qconsts.ρ[j]
+        #     basis_idx = (
+        #         (_float_to_int(xj) << xj_offset)
+        #         | (_float_to_int(xh) << xh_offset)
+        #         | (_float_to_int(yj) << yj_offset)
+        #         | (_float_to_int(yh) << yh_offset)
+        #         | (_float_to_int(rho) << rho_offset)
+        #     )
+        #     state[basis_idx] += 1 / math.sqrt(qconsts.N)  # 1/√N
+
+        # print("calc basis index")
+
+        # circuit.initialize(Statevector(state))  # took long time
+    return circuit
 
 
 def build_circuit(constants: QuantumConstants, gates: tuple) -> QuantumCircuit:
@@ -242,22 +257,6 @@ def execute(circuit: QuantumCircuit) -> int:
     return T
 
 
-def embed_classical_value(circuit: QuantumCircuit, constants: QuantumConstants):
-    # TODO - 古典値xj, xh, yj, yh,rho_jをXゲートでレジスタに埋め込む
-    # 古典ver
-
-    for i in range(constants.N):  # Σ
-        for j in range(constants.N):
-            xj, yj = constants.xj_yj[i][j]
-            xh, yh = constants.xh_yh[i][j]  # 古典ビット
-            rho = constants.ρ[i][j]
-
-    # 量子ver
-    circuit.x(xh_reg[0])  # |01>
-    circuit.x(yh_reg[0])  # |01>
-    circuit.x(rho_reg[0])  # |1>
-
-
 def generate_hologram_q(points: np.ndarray, constants: QuantumConstants) -> np.ndarray:
     gates = define_gates()
     print(circuit.draw("text"))
@@ -297,7 +296,7 @@ def main():
     cl_constants = ClassicalConstants()
 
     points = create_single_point(constants=cl_constants)  # regs?
-    _ = embed_classical_value(constants=constants)
+    circuit = embed_classical_value(constants=constants)  # 古典値を埋め込んだ回路
     hologram_q = generate_hologram_q(_, constants)
 
     end = time.time()
