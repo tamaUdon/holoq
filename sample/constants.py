@@ -53,8 +53,11 @@ class QuantumConstants:
     :type xh_yh: np.ndarray[int]
     """
 
+    N = 4
+    X = 512
+    Y = X
     TEST: bool = True
-    b_width: int = 2
+    b_width: int = 4
     shape: str = "point"  # "circle" | "square" | "point"
 
     # 残りのTODO

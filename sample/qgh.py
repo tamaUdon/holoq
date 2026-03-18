@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from constants import QuantumConstants, ClassicalConstants
 from pointcloud import create_single_point
 from qiskit import QuantumCircuit, transpile
+from qiskit.visualization import plot_histogram
 from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
 from qiskit_aer import AerSimulator
 from qiskit.quantum_info import Statevector
@@ -45,7 +46,7 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
         # 乗算のレジスタ幅
         return x + y
 
-    base_w = qconsts.b_width  # 2
+    base_w = qconsts.b_width  # 例...2のとき
     add_w = _add_bitw(base_w)  # 3
     mul_w = _mul_bitw(add_w, add_w)  # 6
     sq_w = _add_bitw(mul_w)  # 7
@@ -84,7 +85,7 @@ def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
 
 
 def init_superposition_state(
-    circuit: QuantumCircuit, qconsts: QuantumConstants, test=False
+    circuit: QuantumCircuit, consts: QuantumConstants, test=False
 ) -> QuantumCircuit:
     (
         xj_reg,
@@ -101,74 +102,34 @@ def init_superposition_state(
         _,
     ) = circuit.qregs
 
-    if test:
-        # circuit.x(xh_reg[0])  # |01>
-        # circuit.x(yh_reg[0])  # |01>
-        circuit.x(xj_reg[0])  # |01>
-        circuit.x(yj_reg[0])  # |01>
-        circuit.x(rho_reg[0])  # |1>
+    # 1. 重ね合わせを作る
+    circuit.h(xj_reg)
+    circuit.h(yj_reg)
 
-        # 1. 古典値 xj, yjを Hadamerdゲートで重ね合わせにする
-        # 2. a, rhoをCNOTゲートで量子ビットに埋め込む -> aは一旦無視して計算する
-        # 3. xh, yhをCNOTゲートで量子ビットに埋め込む
+    xj = [0, 1, 0, 1]
+    yj = [0, 0, 1, 1]
+    rho_j = [
+        (1, 0),  # 0.5
+        (0, 1),  # 0.25
+        (1, 0),  # 0.5
+        (0, 0),  # 0
+    ]  # [0.5, 0.25, 0.5, 0]を二進数に変換 0|1...00, 0.25...01, 0.5...10, 0.75...11
+    # a_j = [1,2,3,0] # -> aは一旦無視して計算する
+    # xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]  |00>, |01>, |10>, |11>として埋め込む
 
-        # a_j = [1,2,3,0] # -> aは一旦無視して計算する
-        rho_j = [0.5,0.25,0.5,0] # 連続値をrho_jに書き込みたい場合?
-        xj_yj = [(0,0),(1,0),(0,1),(1,1)] # |00>, |01>, |10>, |11>として埋め込む
-        #xj_yj_rhoj = [(0,0,0.5),(1,0,0.25),(0,1,0.5),(1,1,0)]
-
-        circuit.h(xj_reg) # レジスタ全体にHadamardゲートを適用
-        circuit.h(yj_reg)
-        circuit.barrier()
-        circuit.cx(control_qubit=,target_qubit=rho_reg)
-        circuit.cx(control_qubit=,target_qubit=xh_reg[i])
-        circuit.cx(control_qubit=,target_qubit=yh_reg[i])
-
-    else:
-        ...
-        # xj_offset = circuit.find_bit(xj_reg[0]).index
-        # xh_offset = circuit.find_bit(xh_reg[0]).index
-        # yj_offset = circuit.find_bit(yj_reg[0]).index
-        # yh_offset = circuit.find_bit(yh_reg[0]).index
-        # rho_offset = circuit.find_bit(rho_reg[0]).index
-        # state = np.zeros(
-        #     1 << circuit.num_qubits, dtype=complex
-        # )  # WARINIG - Memory Error! Numpy try to allocate 4.00 PiB...
-
-        # print("calc offset")
-
-        # def _float_to_int(value: float):
-        #     """
-        #     :bit幅に合わせて0.0-1.0を刻む補助関数:
-        #     - 4bitの場合 0.3 -> 3 -> 0011にmapする
-        #     """
-        #     return round(value * ((1 << qconsts.bits_w) - 1))
-
-        # for j in range(qconsts.N):  # Σ
-        #     xj, yj = qconsts.xj_yj[j]
-        #     xh, yh = qconsts.xh_yh[j]  # 古典ビット
-        #     rho = qconsts.ρ[j]
-        #     basis_idx = (
-        #         (_float_to_int(xj) << xj_offset)
-        #         | (_float_to_int(xh) << xh_offset)
-        #         | (_float_to_int(yj) << yj_offset)
-        #         | (_float_to_int(yh) << yh_offset)
-        #         | (_float_to_int(rho) << rho_offset)
-        #     )
-        #     state[basis_idx] += 1 / math.sqrt(qconsts.N)  # 1/√N
-
-        # print("calc basis index")
-
-        # circuit.initialize(Statevector(state))  # took long time
-    return circuit
-
-
-def build_circuit(constants: QuantumConstants, gates: tuple) -> QuantumCircuit:
-    circuit = define_regs(qconsts=constants)
-    circuit = init_superposition_state(
-        circuit=circuit, qconsts=constants, test=constants.TEST
-    )
-    circuit = define_circuit(circuit=circuit, qgates=gates, test=constants.TEST)
+    # 2. 古典値のリストから値を入れる
+    for i in range(consts.N):
+        with circuit.if_test((xj[i], 1)):
+            circuit.x(xj_reg[i])
+        with circuit.if_test((yj[i], 1)):
+            circuit.x(yj_reg[i])
+        # with circuit.if_test((xj_reg[i], 1) or (yj_reg[i], 1)):
+        #     # xj, yjに値が入っているならrhoにも値を入れる
+        # TODO - offsetが必要かも
+        for rho in rho_j:  # rho=(1,0)
+            circuit.cx(control_qubit=rho[0], target_qubit=rho_reg[2 * i])
+            circuit.cx(control_qubit=rho[1], target_qubit=rho_reg[2 * i + 1])
+    print(circuit.draw())
     return circuit
 
 
@@ -222,6 +183,9 @@ def define_circuit(
     # ④ MUL
     circuit.append(mul, list(yhj_sq_reg) + list(rho_reg) + list(result_reg))
 
+    # 測定前にbarrier
+    circuit.barrier()
+
     # MEASURE
     if test:
         circuit.measure_all()  # 全てのビットを確認するとき
@@ -231,6 +195,7 @@ def define_circuit(
 
 
 def execute(circuit: QuantumCircuit) -> int:
+    ...
     """
     ### 回路をシミュレートする関数
 
@@ -251,36 +216,34 @@ def execute(circuit: QuantumCircuit) -> int:
     job = simulator.run(transpiled_circuit, shots=6)
     result = job.result()
     counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
+    plot_histogram(counts)
     T = ...  # countsからTを取り出す
-    logg(counts=counts)
 
-    return T
+    return 0
 
 
-def generate_hologram_q(points: np.ndarray, constants: QuantumConstants) -> np.ndarray:
-    gates = define_gates()
+def build_circuit(constants: QuantumConstants, gates: tuple) -> QuantumCircuit:
+    circuit = define_regs(qconsts=constants)
+    circuit = init_superposition_state(
+        circuit=circuit, consts=constants, test=constants.TEST
+    )
+    circuit = define_circuit(circuit=circuit, qgates=gates, test=constants.TEST)
     print(circuit.draw("text"))
+    return circuit
 
-    hologram = np.zeros((constants.Y, constants.X), dtype=int)
 
-    for xh in tqdm.tqdm(range(constants.X)):
-        for yh in range(constants.Y):
+def generate_hologram_q(points: np.ndarray, qconstants: QuantumConstants) -> np.ndarray:
+    gates = define_gates()
+    hologram = np.zeros((qconstants.Y, qconstants.X), dtype=int)
+
+    for xh in tqdm.tqdm(range(qconstants.X)):
+        for yh in range(qconstants.Y):
             circuit = build_circuit(
-                constants=constants, gates=gates
+                constants=qconstants, gates=gates
             )  # 測定ごとに回路を作り直す?
             T = execute(circuit=circuit)
             hologram[xh, yh] = T
     return hologram
-
-
-def logg(counts: dict) -> None:
-    integer_counts = {}
-    for binary_string, count in counts.items():
-        print(f"{binary_string=}")  # 1,0のような文字列が入っている
-        integer_value = int(binary_string[0], 2)
-        integer_counts[integer_value] = count
-    print(f"Measurement counts (binary strings): {counts}")
-    print(f"Measurement counts (integers): {integer_counts}")
 
 
 def show(hologram: np.ndarray) -> None:
@@ -295,14 +258,20 @@ def main():
     constants = QuantumConstants()
     cl_constants = ClassicalConstants()
 
-    points = create_single_point(constants=cl_constants)  # regs?
-    circuit = embed_classical_value(constants=constants)  # 古典値を埋め込んだ回路
-    hologram_q = generate_hologram_q(_, constants)
+    ##==  TEST
+    circuit = define_regs(qconsts=constants)
+    circuit = init_superposition_state(
+        circuit=circuit, consts=constants, test=constants.TEST
+    )
+    ##==
 
-    end = time.time()
-    print(print("Cal time:{} sec".format(end - start)))
+    # points = create_single_point(constants=cl_constants)  # regs?
+    # hologram_q = generate_hologram_q(points=points, qconstants=constants)
 
-    show(hologram_q)
+    # end = time.time()
+    # print(print("Cal time:{} sec".format(end - start)))
+
+    # show(hologram_q)
 
 
 if __name__ == "__main__":
