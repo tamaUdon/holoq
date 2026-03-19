@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from constants import QuantumConstants, ClassicalConstants
 from pointcloud import create_single_point
 from qiskit import QuantumCircuit, transpile
-from qiskit.visualization import plot_histogram
+from qiskit.visualization import plot_histogram, plot_distribution
 from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
 from qiskit_aer import AerSimulator
 from qiskit.quantum_info import Statevector
@@ -19,7 +19,7 @@ from qiskit.circuit.library import (
 )
 
 
-def define_gates(qconsts: QuantumConstants, bw: BitWidth) -> tuple:
+def define_gates(bw: BitWidth) -> tuple:
     """
     ゲートの定義
     """
@@ -34,7 +34,7 @@ def define_gates(qconsts: QuantumConstants, bw: BitWidth) -> tuple:
     return adder, adder_sum, mul, sqr
 
 
-def define_regs(qconsts: QuantumConstants, bw: BitWidth) -> QuantumCircuit:
+def define_regs(bw: BitWidth) -> QuantumCircuit:
     """
     レジスタの定義
     """
@@ -113,13 +113,10 @@ def init_superposition_state(
     circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
     circuit.mcx(controls, rho_reg[1], ctrl_state="01")  # |10> 0.5
 
-    # 3.
+    # 3. xh, yhに値を入れる
     load_integer(circuit, xh_reg, xh)
     load_integer(circuit, yh_reg, yh)
 
-    ##TEST ==
-    # circuit.x(rho_reg[0])
-    ## ==
     return circuit
 
 
@@ -177,15 +174,12 @@ def define_circuit(
     circuit.barrier()
 
     # MEASURE
-    if test:
-        circuit.measure_all()  # 全てのビットを確認するとき
-    else:
-        circuit.measure(qubit=result_reg[0], cbit=cl_result[0])  # T(・) 上位ビットのみ
+    # circuit.measure_all()  # デバッグ用. 全てのビットを確認する
+    circuit.measure(result_reg, cl_result[0])  # result_reg全体を測定
     return circuit
 
 
 def execute(circuit: QuantumCircuit) -> dict:
-    ...
     """
     ### 回路をシミュレートする関数
 
@@ -194,7 +188,7 @@ def execute(circuit: QuantumCircuit) -> dict:
     """
     simulator = AerSimulator(
         method="matrix_product_state"
-    )  # MEMO - StateVectorで検証すると動かなかったのでMPSで試した
+    )  # StateVectorで検証すると動かなかったのでMPSで試した
 
     transpiled_circuit = transpile(
         circuit,
@@ -203,11 +197,9 @@ def execute(circuit: QuantumCircuit) -> dict:
         optimization_level=1,
     )
 
-    job = simulator.run(transpiled_circuit, shots=6)
+    job = simulator.run(transpiled_circuit, shots=1)
     result = job.result()
     counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
-    plot_histogram(counts)
-    # TODO - countsからTを取り出す
 
     return counts
 
@@ -215,15 +207,14 @@ def execute(circuit: QuantumCircuit) -> dict:
 def build_circuit(
     constants: QuantumConstants, bw: BitWidth, gates: tuple, xh: int, yh: int
 ) -> QuantumCircuit:
-    circuit = define_regs(qconsts=constants, bw=bw)
+    circuit = define_regs(bw=bw)
     circuit = init_superposition_state(circuit=circuit, xh=xh, yh=yh)
     circuit = define_circuit(circuit=circuit, qgates=gates, test=constants.TEST)
-    print(circuit.draw("text"))
     return circuit
 
 
 def generate_hologram_q(qconstants: QuantumConstants, bw: BitWidth) -> np.ndarray:
-    gates = define_gates(qconsts=qconstants, bw=bw)
+    gates = define_gates(bw=bw)
     hologram = np.zeros((qconstants.Y, qconstants.X), dtype=int)
 
     for xh in tqdm.tqdm(range(qconstants.X)):
@@ -231,11 +222,12 @@ def generate_hologram_q(qconstants: QuantumConstants, bw: BitWidth) -> np.ndarra
             circuit = build_circuit(
                 constants=qconstants, gates=gates, bw=bw, xh=xh, yh=yh
             )  # 測定ごとに回路を作り直す?
-            T = execute(circuit=circuit)
-            ## TEST==
-            # hologram[xh, yh] = T
-            logg(counts=T)
-            ##
+            # print(circuit.draw("text")) # 回路の確認用
+
+            result: dict = execute(circuit=circuit)
+            logg(result)
+            T = next(iter(result))[:2]  # WARNING - 最初のkeyの0番目の文字を取り出す
+            hologram[xh, yh] = T
     return hologram
 
 
@@ -243,7 +235,13 @@ def show(hologram: np.ndarray) -> None:
     """
     ### ホログラムを表示する関数
     """
-    ...
+    print(hologram)
+    plt.imshow(hologram, cmap="gray", origin="lower", interpolation="nearest")
+    plt.colorbar()
+    plt.title("Hologram")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.show()
 
 
 def logg(counts: dict) -> None:
@@ -253,29 +251,25 @@ def logg(counts: dict) -> None:
         integer_value = int(binary_string[0], 2)
         integer_counts[integer_value] = count
     print(f"Measurement counts (binary strings): {counts}")
-    print(f"Measurement counts (integers): {integer_counts}")
+    print(f"Result register counts (integers): {integer_counts}")
+
+    ## TEST - 確率確認用
+    # plot_distribution(counts)
+    # plt.show()
 
 
 def main():
+    print(print("Start calculation..."))
     start = time.time()
+
     q_constants = QuantumConstants()
-    cl_constants = ClassicalConstants()
     bw = BitWidth(b_width=2)
-
-    # ##==  TEST
-    # circuit = define_regs(qconsts=constants)
-    # circuit = init_superposition_state(
-    #     circuit=circuit, consts=constants, test=constants.TEST
-    # )
-    # ##==
-
-    # points = create_single_point(constants=cl_constants)  # regs?
-    hologram_q = generate_hologram_q(qconstants=q_constants, bw=bw)
+    hologram = generate_hologram_q(qconstants=q_constants, bw=bw)
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
 
-    # show(hologram_q)
+    show(hologram)
 
 
 if __name__ == "__main__":

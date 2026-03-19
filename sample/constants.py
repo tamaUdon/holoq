@@ -55,14 +55,12 @@ class QuantumConstants:
     """
 
     N = 4
-    X = 2
+    X = 100
     Y = X
     TEST: bool = True
     shape: str = "point"  # "circle" | "square" | "point"
 
     # 残りのTODO
-    # 0. initializehを回避して作ってあるので、ランダムを入れてヒストグラムを確認する、回路が正しいか確認する
-    # 1. 1点 -> CGH(ゾーンプレートが出るか)を確認したい
     # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
     # 3. ゾーンプレートが確かめられたら
 
