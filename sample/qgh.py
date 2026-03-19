@@ -113,6 +113,10 @@ def init_superposition_state(
     circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
     circuit.mcx(controls, rho_reg[1], ctrl_state="01")  # |10> 0.5
 
+    # 3.
+    load_integer(circuit, xh_reg, xh)
+    load_integer(circuit, yh_reg, yh)
+
     ##TEST ==
     # circuit.x(rho_reg[0])
     ## ==
