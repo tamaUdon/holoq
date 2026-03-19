@@ -71,8 +71,14 @@ def define_regs(qconsts: QuantumConstants, bw: BitWidth) -> QuantumCircuit:
     return qc
 
 
+def load_integer(circuit: QuantumCircuit, reg: QuantumRegister, value: int):
+    for i in range(len(reg)):
+        if (value >> i) & 1:
+            circuit.x(reg[i])
+
+
 def init_superposition_state(
-    circuit: QuantumCircuit, consts: QuantumConstants, test=False
+    circuit: QuantumCircuit, xh: int, yh: int
 ) -> QuantumCircuit:
     (
         xj_reg,
@@ -89,22 +95,19 @@ def init_superposition_state(
         _,
     ) = circuit.qregs
 
-    xj = [0, 1, 0, 1]
-    yj = [0, 0, 1, 1]
-    rho_j = [
-        (1, 0),  # 0.5
-        (0, 1),  # 0.25
-        (1, 0),  # 0.5
-        (0, 0),  # 0c
-    ]  # [0.5, 0.25, 0.5, 0]を二進数に変換 0|1...00, 0.25...01, 0.5...10, 0.75...11
-    # a_j = [1,2,3,0] # -> aは一旦無視して計算する
-    # xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]  |00>, |01>, |10>, |11>として埋め込む
+    """
+    ## WARNING - 固定値を用いたテスト実装版
+    -  a_j = [1,2,3,0] # -> aは一旦無視して計算する
+    - xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]
+    - rho_j = [0.5, 0.25, 0.5, 0]
+    -      -> [10, 01, 10, 00] として扱う
+    """
 
     # 1. 重ね合わせを作る
     circuit.h(xj_reg[0])
     circuit.h(yj_reg[0])
 
-    # 2. 古典値のリストから値を入れる
+    # 2. CXを用いてρ_jのビットを反転させる
     controls = [xj_reg[0], yj_reg[0]]
     circuit.mcx(controls, rho_reg[1], ctrl_state="00")  # |10> 0.5
     circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
@@ -113,7 +116,6 @@ def init_superposition_state(
     ##TEST ==
     # circuit.x(rho_reg[0])
     ## ==
-    print(circuit.draw())
     return circuit
 
 
@@ -201,19 +203,16 @@ def execute(circuit: QuantumCircuit) -> dict:
     result = job.result()
     counts = result.get_counts(circuit)  # qubit = anc5[0]をカウント
     plot_histogram(counts)
-    counts
     # TODO - countsからTを取り出す
 
     return counts
 
 
 def build_circuit(
-    constants: QuantumConstants, bw: BitWidth, gates: tuple
+    constants: QuantumConstants, bw: BitWidth, gates: tuple, xh: int, yh: int
 ) -> QuantumCircuit:
     circuit = define_regs(qconsts=constants, bw=bw)
-    circuit = init_superposition_state(
-        circuit=circuit, consts=constants, test=constants.TEST
-    )
+    circuit = init_superposition_state(circuit=circuit, xh=xh, yh=yh)
     circuit = define_circuit(circuit=circuit, qgates=gates, test=constants.TEST)
     print(circuit.draw("text"))
     return circuit
@@ -226,7 +225,7 @@ def generate_hologram_q(qconstants: QuantumConstants, bw: BitWidth) -> np.ndarra
     for xh in tqdm.tqdm(range(qconstants.X)):
         for yh in range(qconstants.Y):
             circuit = build_circuit(
-                constants=qconstants, gates=gates, bw=bw
+                constants=qconstants, gates=gates, bw=bw, xh=xh, yh=yh
             )  # 測定ごとに回路を作り直す?
             T = execute(circuit=circuit)
             ## TEST==
@@ -283,3 +282,5 @@ if __name__ == "__main__":
 #       古典計算、手計算の値と合うか確認する
 # 2. MULのextentionを作成しSQRにする
 # 3. デコレーターの実装. 関数の前後にログを出力する関数を作る
+# 4. 点群を読み込む関数を作成する
+# 5. ホログラムを表示する関数を作成する
