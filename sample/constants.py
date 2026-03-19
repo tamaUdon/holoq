@@ -1,4 +1,5 @@
 import dataclasses
+from dataclasses import dataclass
 import math
 import numpy as np
 
@@ -41,7 +42,7 @@ class QuantumConstants:
     """
     量子Constants の Docstring
 
-    :param N: 物体点数 ダミーを含む
+    :param N: 物体点数 ダミーを含む 2の累乗
     :type N: int
     :param a: 振幅 ※初期的な実装では不要?
     :type a: int (nm)
@@ -53,9 +54,33 @@ class QuantumConstants:
     :type xh_yh: np.ndarray[int]
     """
 
-    N = 2
-    bits_w = 2
-    a = [1, 2, 3, 0]
-    ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし...ダミー
-    xj_yj = np.array([(0, 1), (0, 1)])
-    xh_yh = np.array([(0, 1), (0, 1)])
+    N = 4
+    X = 100
+    Y = X
+    TEST: bool = True
+    shape: str = "point"  # "circle" | "square" | "point"
+
+    # 残りのTODO
+    # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
+    # 3. ゾーンプレートが確かめられたら
+
+
+@dataclass
+class BitWidth:
+    b_width: int  # 2
+
+    @property
+    def add_w(self) -> int:
+        return self.b_width + 1  # 3
+
+    @property
+    def mul_w(self) -> int:
+        return self.add_w + self.add_w  # 6
+
+    @property
+    def sq_w(self) -> int:
+        return self.mul_w + 1  # 7
+
+    @property
+    def res_w(self) -> int:
+        return self.sq_w + 1  # 8
