@@ -1,4 +1,5 @@
 import dataclasses
+from dataclasses import dataclass
 import math
 import numpy as np
 
@@ -54,10 +55,9 @@ class QuantumConstants:
     """
 
     N = 4
-    X = 512
+    X = 2
     Y = X
     TEST: bool = True
-    b_width: int = 4
     shape: str = "point"  # "circle" | "square" | "point"
 
     # 残りのTODO
@@ -65,3 +65,24 @@ class QuantumConstants:
     # 1. 1点 -> CGH(ゾーンプレートが出るか)を確認したい
     # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
     # 3. ゾーンプレートが確かめられたら
+
+
+@dataclass
+class BitWidth:
+    b_width: int  # 2
+
+    @property
+    def add_w(self) -> int:
+        return self.b_width + 1  # 3
+
+    @property
+    def mul_w(self) -> int:
+        return self.add_w + self.add_w  # 6
+
+    @property
+    def sq_w(self) -> int:
+        return self.mul_w + 1  # 7
+
+    @property
+    def res_w(self) -> int:
+        return self.sq_w + 1  # 8

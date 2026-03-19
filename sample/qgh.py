@@ -95,7 +95,7 @@ def init_superposition_state(
         (1, 0),  # 0.5
         (0, 1),  # 0.25
         (1, 0),  # 0.5
-        (0, 0),  # 0
+        (0, 0),  # 0c
     ]  # [0.5, 0.25, 0.5, 0]を二進数に変換 0|1...00, 0.25...01, 0.5...10, 0.75...11
     # a_j = [1,2,3,0] # -> aは一旦無視して計算する
     # xj_yj = [(0, 0), (1, 0), (0, 1), (1, 1)]  |00>, |01>, |10>, |11>として埋め込む
@@ -105,20 +105,13 @@ def init_superposition_state(
     circuit.h(yj_reg[0])
 
     # 2. 古典値のリストから値を入れる
-
-    # with circuit.if_test((xj[i], 1)):
-    #     circuit.x(xj_reg[i])
-    # with circuit.if_test((yj[i], 1)):
-    #     circuit.x(yj_reg[i])
-    # with circuit.if_test((xj_reg[i], 1) or (yj_reg[i], 1)):
-    #     # xj, yjに値が入っているならrhoにも値を入れる
-    # TODO - offsetが必要かも
-    # for rho in rho_j:  # rho=(1,0)
-    #     circuit.cx(control_qubit=rho[0], target_qubit=rho_reg[2 * i])
-    #     circuit.cx(control_qubit=rho[1], target_qubit=rho_reg[2 * i + 1])
+    controls = [xj_reg[0], yj_reg[0]]
+    circuit.mcx(controls, rho_reg[1], ctrl_state="00")  # |10> 0.5
+    circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
+    circuit.mcx(controls, rho_reg[1], ctrl_state="01")  # |10> 0.5
 
     ##TEST ==
-    circuit.x(rho_reg[0])
+    # circuit.x(rho_reg[0])
     ## ==
     print(circuit.draw())
     return circuit
