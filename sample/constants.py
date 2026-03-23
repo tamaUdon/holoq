@@ -37,41 +37,46 @@ class ClassicalConstants:
         return self.X // 2
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class QuantumConstants:
     """
     量子Constants の Docstring
 
     :param N: 物体点数 ダミーを含む 2の累乗
     :type N: int
-    :param a: 振幅 ※初期的な実装では不要?
-    :type a: int (nm)
-    :param ρ: 位相のリスト
-    :type ρ: np.ndarray[float]
-    :param xj_yj: 物体点の座標 (x,y)
-    :type xj_yj: np.ndarray[int]
-    :param xh_yh: ホログラムの座標 (x,y)
-    :type xh_yh: np.ndarray[int]
+    :param X: 物体点の座標 (X軸)
+    :type X: int
+    :param Y: ホログラムの画素数 (Y軸)
+    :type Y: int
+    :param TEST: テストフラグ
+    :type TEST: bool
+    :param shape: 物体の形状 (2D)
+    :type shape: str
     """
 
-    N = 4
-    X = 100
-    Y = X
+    @dataclasses.dataclass
+    class BitWidth:
+        """
+        ビット幅に関するインナークラス
+        """
+
+    obj_w: int
+    xh_w: int
+    yh_w: int
+    diff_x_w: int
+    diff_y_w: int
+    bw: BitWidth
+
+    N: int  # 4
+    W: int  # W = N
+    X: int  # 15
+    Y: int = 0  # Y = X
     TEST: bool = True
-    shape: str = "point"  # "circle" | "square" | "point"
-
-    # 残りのTODO
-    # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
-    # 3. ゾーンプレートが確かめられたら
-
-
-@dataclass
-class BitWidth:
-    b_width: int  # 2
+    SHAPE: str = "point"  # "circle" | "square" | "point"
 
     @property
     def add_w(self) -> int:
-        return self.b_width + 1  # 3
+        return self.W + 1  # 3
 
     @property
     def mul_w(self) -> int:
@@ -84,3 +89,18 @@ class BitWidth:
     @property
     def res_w(self) -> int:
         return self.sq_w + 1  # 8
+
+    def __post_init__(self) -> None:
+        if not self.X and self.N:
+            self.Y = self.X
+            self.W = self.N
+
+        self.obj_w = math.ceil(math.log2(self.N))
+        self.xh_w = math.ceil(math.log2(self.X))
+        self.yh_w = math.ceil(math.log2(self.Y))
+        self.diff_x_w = max(self.obj_w, self.xh_w) + 1
+        self.diff_y_w = max(self.obj_w, self.yh_w) + 1
+
+    # 残りのTODO
+    # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
+    # 3. ゾーンプレートが確かめられたら

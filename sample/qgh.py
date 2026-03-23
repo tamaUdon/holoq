@@ -72,6 +72,7 @@ def define_regs(bw: BitWidth) -> QuantumCircuit:
 
 
 def load_integer(circuit: QuantumCircuit, reg: QuantumRegister, value: int):
+    assert value < 2 ** len(reg)
     for i in range(len(reg)):
         if (value >> i) & 1:
             circuit.x(reg[i])
@@ -107,7 +108,7 @@ def init_superposition_state(
     circuit.h(xj_reg[0])
     circuit.h(yj_reg[0])
 
-    # 2. CXを用いてρ_jのビットを反転させる
+    # 2. CNOTを用いてρ_jのビットを反転させる
     controls = [xj_reg[0], yj_reg[0]]
     circuit.mcx(controls, rho_reg[1], ctrl_state="00")  # |10> 0.5
     circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
@@ -162,7 +163,9 @@ def define_circuit(
 
     # ② SQR
     circuit.append(sqr, list(xhj_reg) + list(xhj_sub_reg) + list(xhj_sq_reg))
-    circuit.append(sqr, list(yhj_reg) + list(yhj_sub_reg) + list(yhj_sq_reg[:6]))
+    circuit.append(
+        sqr, list(yhj_reg) + list(yhj_sub_reg) + list(yhj_sq_reg[:-1])
+    )  # [:-1] 次のADDに使う分を空けておく
 
     # ③ ADD
     circuit.append(adder_sum, list(xhj_sq_reg) + list(yhj_sq_reg))
@@ -175,7 +178,7 @@ def define_circuit(
 
     # MEASURE
     # circuit.measure_all()  # デバッグ用. 全てのビットを確認する
-    circuit.measure(result_reg, cl_result[0])  # result_reg全体を測定
+    circuit.measure(result_reg[0], cl_result[0])
     return circuit
 
 
@@ -193,7 +196,7 @@ def execute(circuit: QuantumCircuit) -> dict:
     transpiled_circuit = transpile(
         circuit,
         simulator,
-        coupling_map=None,  # WARNING - ロジック検証用, ハードウェアの仮定なし, 実機でのデバッグ時は指定必須
+        coupling_map=None,  # WARNING - 検証用, 実機での実行時は指定必須
         optimization_level=1,
     )
 
@@ -226,7 +229,7 @@ def generate_hologram_q(qconstants: QuantumConstants, bw: BitWidth) -> np.ndarra
 
             result: dict = execute(circuit=circuit)
             logg(result)
-            T = next(iter(result))[:2]  # WARNING - 最初のkeyの0番目の文字を取り出す
+            T = next(iter(result))[:2]  # WARNING - 最初のkeyの0,1番目の文字を取り出す
             hologram[xh, yh] = T
     return hologram
 
@@ -262,8 +265,9 @@ def main():
     print(print("Start calculation..."))
     start = time.time()
 
-    q_constants = QuantumConstants()
-    bw = BitWidth(b_width=2)
+    q_constants = QuantumConstants(N=4, X=10)
+    bw = BitWidth()
+    bw.from_constants(constants=q_constants)  # もっといい実装ないか?
     hologram = generate_hologram_q(qconstants=q_constants, bw=bw)
 
     end = time.time()
@@ -282,3 +286,6 @@ if __name__ == "__main__":
 # 3. デコレーターの実装. 関数の前後にログを出力する関数を作る
 # 4. 点群を読み込む関数を作成する
 # 5. ホログラムを表示する関数を作成する
+
+# 改善 TOOD
+# 1. BitWidthの初期化 Nを渡すところ もっといい実装はないか?
