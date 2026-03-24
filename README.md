@@ -30,8 +30,18 @@ $ uv run python ./sample/reconst_hologram.py
 # QGHを実行する
 $ uv run python ./sample/qgh.py
 ```
+<img width="800" height="122" alt="スクリーンショット 2026-03-24 20 48 43" src="https://github.com/user-attachments/assets/07143a5f-8800-4562-96e3-43a89c3f1d5c" />
 
-<img width="500" alt="スクリーンショット 2026-03-11 22 52 15" src="https://github.com/user-attachments/assets/c46ffcff-862e-4aa9-9c65-d22de4c6b81e" /><br/>
+
+### Output Sample (QGH)
+### 出力 N=4, X=4の場合
+- 4*4画素で出力したもの
+- 測定のたびに出力は変わる
+<img width="400" alt="holoq_n4_x4" src="https://github.com/user-attachments/assets/0b6f02f7-d462-4cc2-a8cc-2b6592850eee" />
+
+#### 点群数2, 6shotsの場合のヒストグラム
+- QGHの測定後、0|1の確率をプロットしたもの
+<img width="400" height="480" alt="measured" src="https://github.com/user-attachments/assets/9257e576-1d19-4a50-a979-9f0623098be0" />
 
 ### Output Sample (CGH)
 - 生成されるホログラムの画像サンプル
@@ -47,12 +57,6 @@ $ uv run python ./sample/qgh.py
 
 #### Monopolar高速化手法によるホログラム
 <img width="400" alt="monopolar_hologram" src="https://github.com/user-attachments/assets/14f7b3aa-e23c-4c64-84ea-da0d2fe6db9a" />
-
-### Output Sample (QGH)
-- QGHの測定後、0|1の確率をプロットしたもの
-#### 点群数2, 6shotsの場合のヒストグラム
-
-<img width="400" height="480" alt="measured" src="https://github.com/user-attachments/assets/9257e576-1d19-4a50-a979-9f0623098be0" />
 <EOD>
 
 
