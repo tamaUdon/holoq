@@ -90,7 +90,11 @@ def load_integer(circuit: QuantumCircuit, reg: QuantumRegister, value: int) -> N
         reg: 値を書き込む量子レジスタ
         value: 書き込む非負整数値
     """
-    assert value < 2 ** len(reg)
+    max_value = 2 ** len(reg)
+    if not 0 <= value < max_value:
+        raise ValueError(
+            f"value={value} does not fit in register '{reg.name}' with {len(reg)} qubits"
+        )
     for i in range(len(reg)):
         if (value >> i) & 1:
             circuit.x(reg[i])
@@ -139,11 +143,13 @@ def init_superposition_state(
     -      -> [10, 01, 10, 00] として扱う
     """
 
-    # 1. 重ね合わせを作る
-    assert len(xj_reg) == len(yj_reg)
-    for xj, yj in zip(xj_reg, yj_reg):
-        circuit.h(xj)
-        circuit.h(yj)
+    # 1. 物体点数に応じた最小の重ね合わせを作る
+    if len(points) == 2:
+        circuit.h(xj_reg[0])
+        circuit.h(yj_reg[0])
+    elif len(points) > 2:
+        circuit.h(xj_reg)
+        circuit.h(yj_reg)
 
     # 2. CNOTを用いてρ_jのビットを反転させる
     controls = list(xj_reg) + list(yj_reg)
@@ -154,10 +160,6 @@ def init_superposition_state(
         for bit_index in range(len(rho_reg)):
             if (rho >> bit_index) & 1:
                 circuit.mcx(controls, rho_reg[bit_index], ctrl_state=ctrl_state)
-
-    # circuit.mcx(controls, rho_reg[1], ctrl_state="00")  # |10> 0.5
-    # circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
-    # circuit.mcx(controls, rho_reg[1], ctrl_state="01")  # |10> 0.5
 
     # 3. xh, yhに値を入れる
     load_integer(circuit, xh_reg, xh)
@@ -228,8 +230,8 @@ def define_circuit(
     circuit.barrier()
 
     # MEASURE
-    # circuit.measure_all()  # デバッグ用. 全てのビットを確認する
-    circuit.measure(result_reg[0], cl_result[0])
+    circuit.measure_all()  # デバッグ用. 全てのビットを確認する
+    # circuit.measure(result_reg[0], cl_result[0])
     return circuit
 
 
@@ -263,7 +265,6 @@ def execute(circuit: QuantumCircuit) -> dict:
 
 def build_circuit(
     qconsts: QuantumConstants,
-    bw: int,
     gates: tuple[Any, Any, Any, Any],
     xh: int,
     yh: int,
@@ -323,7 +324,6 @@ def generate_hologram_q(
             circuit = build_circuit(
                 qconsts=qconsts,
                 gates=gates,
-                bw=bw,
                 xh=xh,
                 yh=yh,
                 points=points,
@@ -383,8 +383,8 @@ def main():
     print(print("Start calculation..."))
     start = time.time()
 
-    q_constants = QuantumConstants(N=2, X=4)
-    points = [(0, 0), (1, 0), (0, 1), (1, 1)]  # 4点
+    q_constants = QuantumConstants(N=4, X=4)  # N=2, X=4
+    points = [(0, 0), (1, 0), (0, 1), (1, 1)]  # N=4の場合
     rho_values = [0b10, 0b01, 0b10, 0b00]  # 0.0 -> 00, 0.25->01, 0.5->10, 0.75-> 11
 
     hologram = generate_hologram_q(

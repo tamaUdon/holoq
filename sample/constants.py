@@ -52,16 +52,9 @@ class QuantumConstants:
 
     N: int  # 4
     X: int  # 15
-    W: int = 0  # W = N
+    W: int = 0  # ビット幅
     Y: int = 0  # Y = X
 
-    obj_w: int = 0
-    xh_w: int = 0
-    yh_w: int = 0
-    diff_x_w: int = 0
-    diff_y_w: int = 0
-
-    SHAPE: str = "point"  # "circle" | "square" | "point"
     TEST: bool = True
 
     @property
@@ -82,12 +75,10 @@ class QuantumConstants:
 
     def __post_init__(self) -> None:
         self.Y = self.X
-        self.W = self.N
         self.obj_w = math.ceil(math.log2(self.N))
         self.xh_w = math.ceil(math.log2(self.X))
         self.yh_w = math.ceil(math.log2(self.Y))
-        self.diff_x_w = max(self.obj_w, self.xh_w) + 1
-        self.diff_y_w = max(self.obj_w, self.yh_w) + 1
+        self.W = max(self.obj_w, self.xh_w, self.yh_w)
 
     # 残りのTODO
     # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
