@@ -1,57 +1,67 @@
 # 点群法で量子コンピュータ生成ホログラムを作る
 
 import time
-import math
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import QuantumConstants, ClassicalConstants
-from pointcloud import create_single_point
+from constants import QuantumConstants
 from qiskit import QuantumCircuit, transpile
-from qiskit.visualization import plot_histogram, plot_distribution
 from qiskit.circuit import QuantumRegister, ClassicalRegister, AncillaRegister
 from qiskit_aer import AerSimulator
-from qiskit.quantum_info import Statevector
-from constants import BitWidth
 from qiskit.circuit.library import (
     DraperQFTAdder,
     RGQFTMultiplier,
 )
+from typing import Any
 
 
-def define_gates(bw: BitWidth) -> tuple:
+def define_gates(qconsts: QuantumConstants) -> tuple[Any, Any, Any, Any]:
     """
-    ゲートの定義
+    量子CGH回路で使用する演算ゲート群を生成する
+
+    Args:
+        qconsts: 回路幅の計算に必要な量子定数
+
+    Returns:
+        加算器、加算器、乗算器、平方計算用乗算器のタプル。
     """
-    adder = DraperQFTAdder(num_state_qubits=bw.b_width, kind="half")
-    adder_sum = DraperQFTAdder(num_state_qubits=bw.mul_w, kind="half")
-    mul = RGQFTMultiplier(num_state_qubits=bw.sq_w, num_result_qubits=bw.res_w)
+    adder = DraperQFTAdder(num_state_qubits=qconsts.W, kind="half")
+    adder_sum = DraperQFTAdder(num_state_qubits=qconsts.mul_w, kind="half")
+    mul = RGQFTMultiplier(
+        num_state_qubits=qconsts.sq_w, num_result_qubits=qconsts.res_w
+    )
     sqr = RGQFTMultiplier(
-        num_state_qubits=bw.add_w,
-        num_result_qubits=bw.mul_w,
+        num_state_qubits=qconsts.add_w,
+        num_result_qubits=qconsts.mul_w,
         name="SQR_RGQFTMultiplier",
     )
     return adder, adder_sum, mul, sqr
 
 
-def define_regs(bw: BitWidth) -> QuantumCircuit:
+def define_regs(qconsts: QuantumConstants) -> QuantumCircuit:
     """
-    レジスタの定義
+    量子CGH回路で使用するレジスタ構成を定義する
+
+    Args:
+        qconsts: レジスタ幅の計算に必要な量子定数
+
+    Returns:
+        必要な量子レジスタと古典レジスタを持つ回路
     """
 
-    xj_reg = QuantumRegister(bw.b_width, "xj")
-    xh_reg = QuantumRegister(bw.b_width, "xh")
-    xhj_reg = AncillaRegister(bw.add_w, "xhj")
-    xhj_b_reg = AncillaRegister(bw.add_w, "xhj_b")
-    xhj_sq_reg = AncillaRegister(bw.mul_w, "xhj_sq_reg")
-    yj_reg = QuantumRegister(bw.b_width, "yj")
-    yh_reg = QuantumRegister(bw.b_width, "yh")
-    yhj_reg = AncillaRegister(bw.add_w, "yhj")
-    yhj_b_reg = AncillaRegister(bw.add_w, "yhj_b")
-    yhj_sq_reg = AncillaRegister(bw.sq_w, "yhj_sq_reg")
-    rho_reg = QuantumRegister(bw.sq_w, "rho")
-    result = AncillaRegister(bw.res_w, "result")
-    cl_result = ClassicalRegister(bw.res_w, "cl_result")
+    xj_reg = QuantumRegister(qconsts.W, "xj")
+    xh_reg = QuantumRegister(qconsts.W, "xh")
+    xhj_reg = AncillaRegister(qconsts.add_w, "xhj")
+    xhj_b_reg = AncillaRegister(qconsts.add_w, "xhj_b")
+    xhj_sq_reg = AncillaRegister(qconsts.mul_w, "xhj_sq_reg")
+    yj_reg = QuantumRegister(qconsts.W, "yj")
+    yh_reg = QuantumRegister(qconsts.W, "yh")
+    yhj_reg = AncillaRegister(qconsts.add_w, "yhj")
+    yhj_b_reg = AncillaRegister(qconsts.add_w, "yhj_b")
+    yhj_sq_reg = AncillaRegister(qconsts.sq_w, "yhj_sq_reg")
+    rho_reg = QuantumRegister(qconsts.sq_w, "rho")
+    result = AncillaRegister(qconsts.res_w, "result")
+    cl_result = ClassicalRegister(qconsts.res_w, "cl_result")
 
     qc = QuantumCircuit(
         xj_reg,
@@ -71,15 +81,41 @@ def define_regs(bw: BitWidth) -> QuantumCircuit:
     return qc
 
 
-def load_integer(circuit: QuantumCircuit, reg: QuantumRegister, value: int):
+def load_integer(circuit: QuantumCircuit, reg: QuantumRegister, value: int) -> None:
+    """
+    整数値を計算基底状態として量子レジスタへロードする
+
+    Args:
+        circuit: 対象の量子回路
+        reg: 値を書き込む量子レジスタ
+        value: 書き込む非負整数値
+    """
+    assert value < 2 ** len(reg)
     for i in range(len(reg)):
         if (value >> i) & 1:
             circuit.x(reg[i])
 
 
 def init_superposition_state(
-    circuit: QuantumCircuit, xh: int, yh: int
+    circuit: QuantumCircuit,
+    xh: int,
+    yh: int,
+    points: list[tuple[int, int]],
+    rho_values: list[int],
 ) -> QuantumCircuit:
+    """
+    物体点の重ね合わせ状態とホログラム面座標の初期値を設定する。
+
+    Args:
+        circuit: 初期化対象の量子回路
+        xh: ホログラム面 x 座標
+        yh: ホログラム面 y 座標
+        points: 物体点の `(x, y)` 座標列
+        rho_values: 各物体点に対応する位相値
+
+    Returns:
+        初期化後の量子回路。
+    """
     (
         xj_reg,
         xh_reg,
@@ -104,14 +140,24 @@ def init_superposition_state(
     """
 
     # 1. 重ね合わせを作る
-    circuit.h(xj_reg[0])
-    circuit.h(yj_reg[0])
+    assert len(xj_reg) == len(yj_reg)
+    for xj, yj in zip(xj_reg, yj_reg):
+        circuit.h(xj)
+        circuit.h(yj)
 
-    # 2. CXを用いてρ_jのビットを反転させる
-    controls = [xj_reg[0], yj_reg[0]]
-    circuit.mcx(controls, rho_reg[1], ctrl_state="00")  # |10> 0.5
-    circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
-    circuit.mcx(controls, rho_reg[1], ctrl_state="01")  # |10> 0.5
+    # 2. CNOTを用いてρ_jのビットを反転させる
+    controls = list(xj_reg) + list(yj_reg)
+
+    for (px, py), rho in zip(points, rho_values):
+        ctrl_state = format(px, f"0{len(xj_reg)}b") + format(py, f"0{len(yj_reg)}b")
+
+        for bit_index in range(len(rho_reg)):
+            if (rho >> bit_index) & 1:
+                circuit.mcx(controls, rho_reg[bit_index], ctrl_state=ctrl_state)
+
+    # circuit.mcx(controls, rho_reg[1], ctrl_state="00")  # |10> 0.5
+    # circuit.mcx(controls, rho_reg[0], ctrl_state="10")  # |01> 0.25
+    # circuit.mcx(controls, rho_reg[1], ctrl_state="01")  # |10> 0.5
 
     # 3. xh, yhに値を入れる
     load_integer(circuit, xh_reg, xh)
@@ -121,12 +167,18 @@ def init_superposition_state(
 
 
 def define_circuit(
-    circuit: QuantumCircuit, qgates: tuple, test: bool
+    circuit: QuantumCircuit, qgates: tuple[Any, Any, Any, Any], test: bool
 ) -> QuantumCircuit:
     """
-    ### 量子回路を定義する関数
-    :circuit: 量子回路のインスタンス
-    :num_state_qubits: 入力レジスタのビット数
+    量子CGHの演算と測定を行う回路本体を構築する
+
+    Args:
+        circuit: 演算対象の量子回路
+        qgates: 使用する演算ゲート群
+        test: テスト実行用フラグ
+
+    Returns:
+        演算と測定が追加された量子回路。
     """
 
     (
@@ -162,7 +214,9 @@ def define_circuit(
 
     # ② SQR
     circuit.append(sqr, list(xhj_reg) + list(xhj_sub_reg) + list(xhj_sq_reg))
-    circuit.append(sqr, list(yhj_reg) + list(yhj_sub_reg) + list(yhj_sq_reg[:6]))
+    circuit.append(
+        sqr, list(yhj_reg) + list(yhj_sub_reg) + list(yhj_sq_reg[:-1])
+    )  # [:-1] 次のADDに使う分を空けておく
 
     # ③ ADD
     circuit.append(adder_sum, list(xhj_sq_reg) + list(yhj_sq_reg))
@@ -175,25 +229,28 @@ def define_circuit(
 
     # MEASURE
     # circuit.measure_all()  # デバッグ用. 全てのビットを確認する
-    circuit.measure(result_reg, cl_result[0])  # result_reg全体を測定
+    circuit.measure(result_reg[0], cl_result[0])
     return circuit
 
 
 def execute(circuit: QuantumCircuit) -> dict:
     """
-    ### 回路をシミュレートする関数
+    回路をシミュレータで実行し、測定結果を取得する
 
-    :param circuit: 量子回路のインスタンス
-    :param type: QuantumCircuit
+    Args:
+        circuit: 実行対象の量子回路
+
+    Returns:
+        測定ビット列をキー、出現回数を値とする辞書
     """
     simulator = AerSimulator(
         method="matrix_product_state"
-    )  # StateVectorで検証すると動かなかったのでMPSで試した
+    )  # stateVectorで検証すると動かなかったのでMPSで試した "matrix_product_state"
 
     transpiled_circuit = transpile(
         circuit,
         simulator,
-        coupling_map=None,  # WARNING - ロジック検証用, ハードウェアの仮定なし, 実機でのデバッグ時は指定必須
+        coupling_map=None,  # WARNING - 検証用, 実機での実行時は指定必須
         optimization_level=1,
     )
 
@@ -205,35 +262,92 @@ def execute(circuit: QuantumCircuit) -> dict:
 
 
 def build_circuit(
-    constants: QuantumConstants, bw: BitWidth, gates: tuple, xh: int, yh: int
+    qconsts: QuantumConstants,
+    bw: int,
+    gates: tuple[Any, Any, Any, Any],
+    xh: int,
+    yh: int,
+    points: list[tuple[int, int]],
+    rho_values: list[int],
 ) -> QuantumCircuit:
-    circuit = define_regs(bw=bw)
-    circuit = init_superposition_state(circuit=circuit, xh=xh, yh=yh)
-    circuit = define_circuit(circuit=circuit, qgates=gates, test=constants.TEST)
+    """
+    1画素分の量子CGH回路を組み立てる
+
+    Args:
+        qconsts: 量子定数
+        bw: 基準ビット幅
+        gates: 使用する演算ゲート群
+        xh: ホログラム面 x 座標
+        yh: ホログラム面 y 座標
+        points: 物体点の `(x, y)` 座標列
+        rho_values: 各物体点に対応する位相値
+
+    Returns:
+        指定画素に対応する量子回路。
+    """
+    circuit = define_regs(qconsts=qconsts)
+    circuit = init_superposition_state(
+        circuit=circuit,
+        xh=xh,
+        yh=yh,
+        points=points,
+        rho_values=rho_values,
+    )
+    circuit = define_circuit(circuit=circuit, qgates=gates, test=qconsts.TEST)
     return circuit
 
 
-def generate_hologram_q(qconstants: QuantumConstants, bw: BitWidth) -> np.ndarray:
-    gates = define_gates(bw=bw)
-    hologram = np.zeros((qconstants.Y, qconstants.X), dtype=int)
+def generate_hologram_q(
+    qconsts: QuantumConstants,
+    bw: int,
+    points: list[tuple[int, int]],
+    rho_values: list[int],
+) -> np.ndarray:
+    """
+    量子回路を画素ごとに実行してホログラム配列を生成する
 
-    for xh in tqdm.tqdm(range(qconstants.X)):
-        for yh in range(qconstants.Y):
+    Args:
+        qconsts: ホログラムサイズと回路幅を管理する定数
+        bw: 基準ビット幅
+        points: 物体点の `(x, y)` 座標列
+        rho_values: 各物体点に対応する位相値
+
+    Returns:
+        形状 `(Y, X)` のホログラム配列
+    """
+    gates = define_gates(qconsts=qconsts)
+    hologram = np.zeros((qconsts.Y, qconsts.X), dtype=int)
+
+    for xh in tqdm.tqdm(range(qconsts.X)):
+        for yh in range(qconsts.Y):
             circuit = build_circuit(
-                constants=qconstants, gates=gates, bw=bw, xh=xh, yh=yh
+                qconsts=qconsts,
+                gates=gates,
+                bw=bw,
+                xh=xh,
+                yh=yh,
+                points=points,
+                rho_values=rho_values,
             )  # 測定ごとに回路を作り直す?
             # print(circuit.draw("text")) # 回路の確認用
 
             result: dict = execute(circuit=circuit)
             logg(result)
-            T = next(iter(result))[:2]  # WARNING - 最初のkeyの0番目の文字を取り出す
+            T = next(
+                iter(result)
+            )[
+                :2
+            ]  # WARNING - 最初のkeyの0,1番目の文字を取り出す. Tの対象ビットはこれであっている?
             hologram[xh, yh] = T
     return hologram
 
 
 def show(hologram: np.ndarray) -> None:
     """
-    ### ホログラムを表示する関数
+    ホログラム配列を画像として表示する。
+
+    Args:
+        hologram: 表示対象のホログラム配列。
     """
     print(hologram)
     plt.imshow(hologram, cmap="gray", origin="lower", interpolation="nearest")
@@ -244,7 +358,13 @@ def show(hologram: np.ndarray) -> None:
     plt.show()
 
 
-def logg(counts: dict) -> None:
+def logg(counts: dict[str, int]) -> None:
+    """
+    測定結果を標準出力へ整形して表示する。
+
+    Args:
+        counts: 測定ビット列をキー、出現回数を値とする辞書。
+    """
     integer_counts = {}
     for binary_string, count in counts.items():
         print(f"{binary_string=}")  # 1,0のような文字列が入っている
@@ -254,6 +374,7 @@ def logg(counts: dict) -> None:
     print(f"Result register counts (integers): {integer_counts}")
 
     ## TEST - 確率確認用
+    # from qiskit.visualization import plot_histogram, plot_distribution
     # plot_distribution(counts)
     # plt.show()
 
@@ -262,9 +383,13 @@ def main():
     print(print("Start calculation..."))
     start = time.time()
 
-    q_constants = QuantumConstants()
-    bw = BitWidth(b_width=2)
-    hologram = generate_hologram_q(qconstants=q_constants, bw=bw)
+    q_constants = QuantumConstants(N=2, X=4)
+    points = [(0, 0), (1, 0), (0, 1), (1, 1)]  # 4点
+    rho_values = [0b10, 0b01, 0b10, 0b00]  # 0.0 -> 00, 0.25->01, 0.5->10, 0.75-> 11
+
+    hologram = generate_hologram_q(
+        qconsts=q_constants, bw=q_constants.W, points=points, rho_values=rho_values
+    )
 
     end = time.time()
     print(print("Cal time:{} sec".format(end - start)))
