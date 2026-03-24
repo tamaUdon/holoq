@@ -2,6 +2,7 @@ import dataclasses
 from dataclasses import dataclass
 import math
 import numpy as np
+from typing import Optional
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,25 +55,19 @@ class QuantumConstants:
     :type shape: str
     """
 
-    @dataclasses.dataclass
-    class BitWidth:
-        """
-        ビット幅に関するインナークラス
-        """
-
-    obj_w: int
-    xh_w: int
-    yh_w: int
-    diff_x_w: int
-    diff_y_w: int
-    bw: BitWidth
-
     N: int  # 4
-    W: int  # W = N
     X: int  # 15
+    W: int = 0  # W = N
     Y: int = 0  # Y = X
-    TEST: bool = True
+
+    obj_w: int = 0
+    xh_w: int = 0
+    yh_w: int = 0
+    diff_x_w: int = 0
+    diff_y_w: int = 0
+
     SHAPE: str = "point"  # "circle" | "square" | "point"
+    TEST: bool = True
 
     @property
     def add_w(self) -> int:
@@ -91,10 +86,8 @@ class QuantumConstants:
         return self.sq_w + 1  # 8
 
     def __post_init__(self) -> None:
-        if not self.X and self.N:
-            self.Y = self.X
-            self.W = self.N
-
+        self.Y = self.X
+        self.W = self.N
         self.obj_w = math.ceil(math.log2(self.N))
         self.xh_w = math.ceil(math.log2(self.X))
         self.yh_w = math.ceil(math.log2(self.Y))
