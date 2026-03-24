@@ -8,18 +8,14 @@ from typing import Optional
 @dataclasses.dataclass(frozen=True)
 class ClassicalConstants:
     """
-    古典Constants の Docstring
+    古典CGH計算で使用する定数群。
 
-    :param X,Y: 画素数
-    :type X,Y: int
-    :param λ: 波長
-    :type λ: int (nm) # TODO - [int]にする
-    :param k: 波数 (2pi/λ)
-    :type k: int
-    :param pp: 画素ピッチ
-    :type pp: int
-    :param d: ホログラムと物体間の距離
-    :type d: int
+    Attributes:
+        X: ホログラムの X 方向画素数。
+        Y: ホログラムの Y 方向画素数。
+        λ: 波長 [m]。
+        pp: 画素ピッチ [m]。
+        d: ホログラム面と物体面の距離 [m]。
     """
 
     X = 512  # 画素X方向
@@ -41,18 +37,20 @@ class ClassicalConstants:
 @dataclasses.dataclass
 class QuantumConstants:
     """
-    量子Constants の Docstring
+    量子CGH回路で使用する定数群。
 
-    :param N: 物体点数 ダミーを含む 2の累乗
-    :type N: int
-    :param X: 物体点の座標 (X軸)
-    :type X: int
-    :param Y: ホログラムの画素数 (Y軸)
-    :type Y: int
-    :param TEST: テストフラグ
-    :type TEST: bool
-    :param shape: 物体の形状 (2D)
-    :type shape: str
+    Attributes:
+        N: 物体点数。
+        X: ホログラムの X 方向画素数。
+        W: 量子回路で使用する基準ビット幅。
+        Y: ホログラムの Y 方向画素数。`__post_init__` で `X` に合わせる。
+        obj_w: 物体点インデックスの表現ビット幅。
+        xh_w: ホログラム面 x 座標の表現ビット幅。
+        yh_w: ホログラム面 y 座標の表現ビット幅。
+        diff_x_w: x 方向差分計算に必要なビット幅。
+        diff_y_w: y 方向差分計算に必要なビット幅。
+        SHAPE: 物体形状の識別子。
+        TEST: テスト用フラグ。
     """
 
     N: int  # 4

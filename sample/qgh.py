@@ -116,7 +116,7 @@ def init_superposition_state(
         circuit.h(yj)
 
     # 2. CNOTを用いてρ_jのビットを反転させる
-    controls = [xj_reg, yj_reg]
+    controls = list(xj_reg) + list(yj_reg)
 
     for (px, py), rho in zip(points, rho_values):
         ctrl_state = format(px, f"0{len(xj_reg)}b") + format(py, f"0{len(yj_reg)}b")
@@ -206,7 +206,7 @@ def execute(circuit: QuantumCircuit) -> dict:
     """
     simulator = AerSimulator(
         method="matrix_product_state"
-    )  # StateVectorで検証すると動かなかったのでMPSで試した
+    )  # stateVectorで検証すると動かなかったのでMPSで試した "matrix_product_state"
 
     transpiled_circuit = transpile(
         circuit,
@@ -303,7 +303,7 @@ def main():
     print(print("Start calculation..."))
     start = time.time()
 
-    q_constants = QuantumConstants(N=4, X=10)
+    q_constants = QuantumConstants(N=2, X=4)
     points = [(0, 0), (1, 0), (0, 1), (1, 1)]  # 4点
     rho_values = [0b10, 0b01, 0b10, 0b00]  # 0.0 -> 00, 0.25->01, 0.5->10, 0.75-> 11
 
