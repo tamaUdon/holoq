@@ -1,11 +1,8 @@
-import dataclasses
 from dataclasses import dataclass
 import math
-import numpy as np
-from typing import Optional
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class ClassicalConstants:
     """
     古典CGH計算で使用する定数群。
@@ -34,7 +31,7 @@ class ClassicalConstants:
         return self.X // 2
 
 
-@dataclasses.dataclass
+@dataclass
 class QuantumConstants:
     """
     量子CGH回路で使用する定数群。
