@@ -20,11 +20,12 @@ class ClassicalConstants:
     :type d: int
     """
 
-    X = 512  # 画素X方向
+    X = 10  # 画素X方向
     Y = X
     λ = 633e-9  # 波長[nm]
     pp = 10e-6  # 画素ピッチ[μm]
     d = 260e-3  # 物体までの距離[mm]
+    bits_w = 2
 
     @property
     def k(self) -> float:
