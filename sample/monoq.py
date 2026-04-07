@@ -15,7 +15,7 @@ def T(x: int, bits=8):
     return: binary string の最左側を取得し返却する
     例: 1101 -> 1
     """
-    return format(int(x), f'0{bits}b')[0]
+    return format(int(x), f'0{bits}b')[-1]
 
 def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
     # Complex, amplitude and phase-only holograms using bipolar approximationのFig.2を参考に作成
@@ -53,32 +53,22 @@ def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
         print(f"{y_sq=}")
         print(f"{M=}")
 
-        # 1. fixed-point monopolar generated holography
         ρ = M * N
         print(f"{ρ=}")
 
+        # 1. fixed-point monopolar generated holography
         frac_part, int_part = np.modf(ρ) # 例) 1.5 -> (0.5, 1.0)
         decimal_arr = np.array([[Decimal(str(x).split(".")[1]) for x in row] for row in frac_part], dtype=object) # Decimal型に変換し、.以下をstrとして格納
         print(f"{decimal_arr=}")
-        binary_arr = np.vectorize(to_binary_str, otypes=[object])(decimal_arr)
-        print(f"{binary_arr=}")
-
-        # 2進数
-        t = (binary_arr.astype(int) >> target_bit) & 1 # TODO - numpy 配列全体にTをかける
-
-        # 10進数
-        # frac_part = 100000000*frac_part # TODO - 8bit取得
-        # print(f"10x{frac_part=}")
-
-        t = frac_part.astype(int)
+        t = np.vectorize(T, otypes=[object])(decimal_arr)
         print(f"{t=}")
-        print(f"{N=}") # N=0.0003038036213391664
-        print(f"{M=}") # [50.0000000000000000, ...
 
-        hologram[i] = t.astype(np.int32) # 足し合わせている -> 個別に保持する
+        hologram[i] = t.astype(int) # 足し合わせている -> 個別に保持する
         print(hologram[i])
 
         # TODO - 2. calculate the ratio of 1
+        #  - T(・) ... 小数第一位を取得する関数を作り、1の数を数える
+        #    例) 75%などの確率を得るｓ
 
 
         # TODO - (3. calculate the ratio after measurement)
@@ -110,7 +100,7 @@ if __name__ == "__main__":
 
 
 # <処理フローの詳細>
-# 1. ホログラムの計算部
+# 1. ホログラムの計算部 -> oks
 #     - 古典CGHと同じ、Monopolar hologram computation を用いる
 
 # 2. 各ピクセルの輝度値の計算部
