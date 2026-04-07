@@ -113,9 +113,17 @@ def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.n
     return hologram
 
 
-def show(holography: np.ndarray) -> None:
+def show(holography: np.ndarray, X: int, Y: int) -> None:
+    """
+    ホログラム配列を等高線として表示する。
+
+    Args:
+        holography: 表示対象のホログラム配列。
+        X: X 方向画素数。
+        Y: Y 方向画素数。
+    """
     fig, ax = plt.subplots()
-    color = ax.contourf(range(Constants.X), range(Constants.Y), holography)
+    color = ax.contourf(range(X), range(Y), holography)
     fig.colorbar(color)
     fig.set_label("holography")
     plt.legend()
@@ -124,7 +132,7 @@ def show(holography: np.ndarray) -> None:
 
 def main():
     start = time.time()
-    constants = Constants()
+    constants = ClassicalConstants()
 
     points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
     hologram = generate_hologram(points, constants)
@@ -134,7 +142,7 @@ def main():
     print(print("Cal time:{} sec".format(end - start)))
 
     print("Preparing for display...")
-    show(hologram)
+    show(hologram, constants.X, constants.Y)
 
 
 if __name__ == "__main__":

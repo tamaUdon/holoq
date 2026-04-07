@@ -1,23 +1,18 @@
-import dataclasses
+from dataclasses import dataclass
 import math
-import numpy as np
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class ClassicalConstants:
     """
-    古典Constants の Docstring
+    古典CGH計算で使用する定数群。
 
-    :param X,Y: 画素数
-    :type X,Y: int
-    :param λ: 波長
-    :type λ: int (nm) # TODO - [int]にする
-    :param k: 波数 (2pi/λ)
-    :type k: int
-    :param pp: 画素ピッチ
-    :type pp: int
-    :param d: ホログラムと物体間の距離
-    :type d: int
+    Attributes:
+        X: ホログラムの X 方向画素数。
+        Y: ホログラムの Y 方向画素数。
+        λ: 波長 [m]。
+        pp: 画素ピッチ [m]。
+        d: ホログラム面と物体面の距離 [m]。
     """
 
     X = 10  # 画素X方向
@@ -37,26 +32,55 @@ class ClassicalConstants:
         return self.X // 2
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass
 class QuantumConstants:
     """
-    量子Constants の Docstring
+    量子CGH回路で使用する定数群。
 
-    :param N: 物体点数 ダミーを含む
-    :type N: int
-    :param a: 振幅 ※初期的な実装では不要?
-    :type a: int (nm)
-    :param ρ: 位相のリスト
-    :type ρ: np.ndarray[float]
-    :param xj_yj: 物体点の座標 (x,y)
-    :type xj_yj: np.ndarray[int]
-    :param xh_yh: ホログラムの座標 (x,y)
-    :type xh_yh: np.ndarray[int]
+    Attributes:
+        N: 物体点数。
+        X: ホログラムの X 方向画素数。
+        W: 量子回路で使用する基準ビット幅。
+        Y: ホログラムの Y 方向画素数。`__post_init__` で `X` に合わせる。
+        obj_w: 物体点インデックスの表現ビット幅。
+        xh_w: ホログラム面 x 座標の表現ビット幅。
+        yh_w: ホログラム面 y 座標の表現ビット幅。
+        diff_x_w: x 方向差分計算に必要なビット幅。
+        diff_y_w: y 方向差分計算に必要なビット幅。
+        SHAPE: 物体形状の識別子。
+        TEST: テスト用フラグ。
     """
 
-    N = 2
-    bits_w = 2
-    a = [1, 2, 3, 0]
-    ρ = np.array([(0.5), (0.0)])  # 最後ρ=0なので位相の寄与なし...ダミー
-    xj_yj = np.array([(0, 1), (0, 1)])
-    xh_yh = np.array([(0, 1), (0, 1)])
+    N: int  # 4
+    X: int  # 15
+    W: int = 0  # ビット幅
+    Y: int = 0  # Y = X
+
+    TEST: bool = True
+
+    @property
+    def add_w(self) -> int:
+        return self.W + 1  # 3
+
+    @property
+    def mul_w(self) -> int:
+        return self.add_w + self.add_w  # 6
+
+    @property
+    def sq_w(self) -> int:
+        return self.mul_w + 1  # 7
+
+    @property
+    def res_w(self) -> int:
+        return self.sq_w + 1  # 8
+
+    def __post_init__(self) -> None:
+        self.Y = self.X
+        self.obj_w = math.ceil(math.log2(self.N))
+        self.xh_w = math.ceil(math.log2(self.X))
+        self.yh_w = math.ceil(math.log2(self.Y))
+        self.W = max(self.obj_w, self.xh_w, self.yh_w)
+
+    # 残りのTODO
+    # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
+    # 3. ゾーンプレートが確かめられたら

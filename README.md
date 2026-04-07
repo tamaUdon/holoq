@@ -5,6 +5,11 @@
 ### Install
 
 ```
+# pip が使えるか確認
+# pipは、Python 3.4以降には標準で付属している
+$ pip --version
+# エラーが出たら何かしらの方法で Python をインストールしてください
+
 # uv が入っていなければインストール
 $ pip install uv
 
@@ -12,7 +17,7 @@ $ pip install uv
 $ uv sync
 ```
 
-### Get Started
+### Get Started (CGH)
 
 ```
 # 点群法のサンプルコードを実行する
@@ -24,8 +29,26 @@ $ uv run python ./sample/reconst_hologram.py
 
 <img width="800" height="94" alt="スクリーンショット 2025-11-28 4 09 12" src="https://github.com/user-attachments/assets/9eade545-98a2-45c7-81f2-09c1fa8d07dd" />
 
+### Get Started (QGH)
 
-### Output Sample
+```
+# QGHを実行する
+$ uv run python ./sample/qgh.py
+```
+<img width="800" height="122" alt="スクリーンショット 2026-03-24 20 48 43" src="https://github.com/user-attachments/assets/07143a5f-8800-4562-96e3-43a89c3f1d5c" />
+
+
+### Output Sample (QGH)
+### 出力 N=4, X=4の場合
+- 4*4画素で出力したもの
+- 測定のたびに出力は変わる
+<img width="400" alt="holoq_n4_x4" src="https://github.com/user-attachments/assets/0b6f02f7-d462-4cc2-a8cc-2b6592850eee" />
+
+#### 点群数2, 6shotsの場合のヒストグラム
+- QGHの測定後、0|1の確率をプロットしたもの
+<img width="400" height="480" alt="measured" src="https://github.com/user-attachments/assets/9257e576-1d19-4a50-a979-9f0623098be0" />
+
+### Output Sample (CGH)
 - 生成されるホログラムの画像サンプル
 
 #### 1点（ゾーンプレート）
@@ -39,8 +62,10 @@ $ uv run python ./sample/reconst_hologram.py
 
 #### Monopolar高速化手法によるホログラム
 <img width="400" alt="monopolar_hologram" src="https://github.com/user-attachments/assets/14f7b3aa-e23c-4c64-84ea-da0d2fe6db9a" />
-
 <EOD>
+
+
+
 
 
 
