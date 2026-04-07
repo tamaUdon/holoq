@@ -15,11 +15,11 @@ class ClassicalConstants:
         d: ホログラム面と物体面の距離 [m]。
     """
 
-    X = 10  # 画素X方向
+    X = 1024  # 画素X方向
     Y = X
-    λ = 633e-9  # 波長[nm]
-    pp = 10e-6  # 画素ピッチ[μm]
-    d = 260e-3  # 物体までの距離[mm]
+    λ = 633  # 波長[nm] e-9
+    pp = 10  # 画素ピッチ[μm] e-6
+    d = 260  # 物体までの距離[mm] e-3
     bits_w = 2
 
     @property
@@ -80,7 +80,3 @@ class QuantumConstants:
         self.xh_w = math.ceil(math.log2(self.X))
         self.yh_w = math.ceil(math.log2(self.Y))
         self.W = max(self.obj_w, self.xh_w, self.yh_w)
-
-    # 残りのTODO
-    # 2. 4点 (四角), 円 (多数点)から作成できるか試したい
-    # 3. ゾーンプレートが確かめられたら

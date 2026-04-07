@@ -3,77 +3,87 @@ import tqdm
 import time
 from constants import ClassicalConstants
 from pointcloud import create_single_point, show
+from decimal import Decimal
+
 
 # numpy を固定小数モードに
 np.set_printoptions(precision=16, floatmode='fixed', suppress=False)
 
+def T(x: int, bits=8):
+    """
+    x: int
+    return: binary string の最左側を取得し返却する
+    例: 1101 -> 1
+    """
+    return format(int(x), f'0{bits}b')[0]
 
 def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
     # Complex, amplitude and phase-only holograms using bipolar approximationのFig.2を参考に作成
     # monopolar実装版 - 512*512画素で3sec
-    scale = 1 << ClassicalConstants.bits_w
-    target_bit = ClassicalConstants.bits_w - 1
+    scale = 1 << constants.bits_w
+    target_bit = constants.bits_w - 1
 
-    x = np.arange(ClassicalConstants.X, dtype=np.int64)
-    y = np.arange(ClassicalConstants.Y, dtype=np.int64)
+    x = np.arange(constants.X, dtype=np.int64)
+    y = np.arange(constants.Y, dtype=np.int64)
     xh, yh = np.meshgrid(x, y)
     hologram = np.full((len(points), constants.X, constants.Y), 0) # 0埋めのhologram面 * 物体点数
 
-    p_sq = ClassicalConstants.pp * ClassicalConstants.pp
-    p_denom = 2 * ClassicalConstants.λ * ClassicalConstants.d
+    p_sq = constants.pp * constants.pp
+    p_denom = 2 * constants.λ * constants.d
 
     # 1. 固定小数monopolarを実装
 
     N = p_sq / p_denom # M-bit 固定値なのでループの外側に出す
-    print(f"{N=}")
-    num_of_digits = len(str(abs(N))) # 桁数を知る. eg. 3桁 # TODO - ここのM-bit固定小数変換が問題そう
+    print(f"{p_sq=}")
+    print(f"{p_denom=}")
+    print(f"{N=}") # N=0.0003038036213391664
     #  TODO - ... order of nanometers, 𝑝2∕2𝜆𝑧𝑗 is a fractional value. If this is converted to 𝑀-bit fixed point format, the fixed-point is always positioned on the leftmost side
-    print(f"{num_of_digits=}")
-
-    N_decimal = N / 10**num_of_digits # 111 / 10**3 = 0.111
-    print(f"{N_decimal=}")
 
     for i, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
-        xhj = xh.astype(np.float64) - xj # hologram面を一気に計算
-        yhj = yh.astype(np.float64) - yj
+        xhj = xh.astype(np.int32) - xj # hologram面を一気に計算
+        yhj = yh.astype(np.int32) - yj
         print(f"{xhj=}")
         print(f"{yhj=}")
 
         x_sq = xhj * xhj
         y_sq = yhj * yhj
-        M = x_sq + y_sq # N-bit
+        M = x_sq + y_sq # M-bit
+
         print(f"{x_sq=}")
         print(f"{y_sq=}")
         print(f"{M=}")
 
         # 1. fixed-point monopolar generated holography
-        ρ = M * N_decimal
+        ρ = M * N
         print(f"{ρ=}")
 
         frac_part, int_part = np.modf(ρ) # 例) 1.5 -> (0.5, 1.0)
-        print(f"{frac_part=}")
+        decimal_arr = np.array([[Decimal(str(x).split(".")[1]) for x in row] for row in frac_part], dtype=object) # Decimal型に変換し、.以下をstrとして格納
+        print(f"{decimal_arr=}")
+        binary_arr = np.vectorize(to_binary_str, otypes=[object])(decimal_arr)
+        print(f"{binary_arr=}")
 
         # 2進数
-        # np.right_shift(frac_part, 1)
-        # t = (frac_part >> target_bit) & 1 # TODO - numpy 配列全体にTをかける
+        t = (binary_arr.astype(int) >> target_bit) & 1 # TODO - numpy 配列全体にTをかける
 
         # 10進数
-        frac_part = 10*frac_part
-        print(f"{frac_part=}")
-        print(f"{frac_part.astype(int)=}")
-        t = np.right_shift(frac_part.astype(int), 1)
-        print(f"{t=}")
+        # frac_part = 100000000*frac_part # TODO - 8bit取得
+        # print(f"10x{frac_part=}")
 
-        hologram[i] += t.astype(np.float64) # 足し合わせている -> 個別に保持する
+        t = frac_part.astype(int)
+        print(f"{t=}")
+        print(f"{N=}") # N=0.0003038036213391664
+        print(f"{M=}") # [50.0000000000000000, ...
+
+        hologram[i] = t.astype(np.int32) # 足し合わせている -> 個別に保持する
         print(hologram[i])
 
-        # 2. calculate the ratio of 1
-        hologram
+        # TODO - 2. calculate the ratio of 1
 
 
-        # (3. calculate the ratio after measurement)
+        # TODO - (3. calculate the ratio after measurement)
         
-        # 3. hologram[] * measurement ratio 
+        # TODO - 3. hologram[] * measurement ratio 
 
     return hologram
 
@@ -91,7 +101,7 @@ def main():
     print("CGH Calculation completed!")
 
     print("Preparing for display...")
-    show(hologram)
+    show(hologram[0], constants.X, constants.Y) # WARNING - 現在は0番目のhologramだけを表示している
 
 
 if __name__ == "__main__":
