@@ -3,9 +3,7 @@ import tqdm
 import time
 from constants import ClassicalConstants
 from pointcloud import create_single_point, show
-from decimal import Decimal, getcontext
-
-
+from decimal import Decimal, getcontext, ROUND_HALF_UP
 # numpy を固定小数モードに
 np.set_printoptions(precision=16, floatmode='fixed', suppress=False)
 getcontext().prec = 16
@@ -54,7 +52,7 @@ def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
 
         decimal_arr = np.array([[Decimal(str(x).split(".")[1]) for x in row] for row in frac_part], dtype=object) # Decimal型に変換し、.以下をstrとして格納
         
-        t_array = np.array([[(Decimal(str(int(3))[0])/10).quantize(Decimal('0'), ROUND_HALF_UP) for x in row] for row in decimal_arr], dtype=int) # 不格好なのでなおす
+        t_array = np.array([[(Decimal(str(int(x))[0])/10).quantize(Decimal('0'), ROUND_HALF_UP) for x in row] for row in decimal_arr], dtype=int) # 不格好なのでなおす
         # decimal型 -> 0~9 整数が入ることはわかっている　-> 0~
         # 四捨五入はok
         print(f"{t_array=}")
