@@ -3,33 +3,23 @@ import tqdm
 import time
 from constants import ClassicalConstants
 from pointcloud import create_single_point, show
-from decimal import Decimal
+from decimal import Decimal, getcontext
 
 
 # numpy を固定小数モードに
 np.set_printoptions(precision=16, floatmode='fixed', suppress=False)
-
-def T(x: int, bits=8):
-    """
-    x: int
-    return: binary string の最左側を取得し返却する
-    例: 1101 -> 1
-    """
-    return format(int(x), f'0{bits}b')[-1]
+getcontext().prec = 16
 
 def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
     # Complex, amplitude and phase-only holograms using bipolar approximationのFig.2を参考に作成
-    # monopolar実装版 - 512*512画素で3sec
-    scale = 1 << constants.bits_w
-    target_bit = constants.bits_w - 1
 
     x = np.arange(constants.X, dtype=np.int64)
     y = np.arange(constants.Y, dtype=np.int64)
     xh, yh = np.meshgrid(x, y)
     hologram = np.full((len(points), constants.X, constants.Y), 0) # 0埋めのhologram面 * 物体点数
 
-    p_sq = constants.pp * constants.pp
-    p_denom = 2 * constants.λ * constants.d
+    p_sq = 2 * np.pi * constants.pp * constants.pp
+    p_denom = constants.λ * constants.d
 
     # 1. 固定小数monopolarを実装
 
@@ -42,6 +32,7 @@ def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
     for i, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
         xhj = xh.astype(np.int32) - xj # hologram面を一気に計算
         yhj = yh.astype(np.int32) - yj
+        print(f"{xj=}, {yj=}, {zj=}")
         print(f"{xhj=}")
         print(f"{yhj=}")
 
@@ -53,23 +44,29 @@ def monopolar_fixed_point(points: np.ndarray, constants: ClassicalConstants):
         print(f"{y_sq=}")
         print(f"{M=}")
 
-        ρ = M * N
-        print(f"{ρ=}")
+        θ = M * N # θ
+        print(f"{θ=}")
 
         # 1. fixed-point monopolar generated holography
-        frac_part, int_part = np.modf(ρ) # 例) 1.5 -> (0.5, 1.0)
-        decimal_arr = np.array([[Decimal(str(x).split(".")[1]) for x in row] for row in frac_part], dtype=object) # Decimal型に変換し、.以下をstrとして格納
-        print(f"{decimal_arr=}")
-        t = np.vectorize(T, otypes=[object])(decimal_arr)
-        print(f"{t=}")
+        frac_part, int_part = np.modf(θ) # 例) 1.5 -> (0.5, 1.0)
+        print(f"{frac_part=}")
+        print(f"{int_part=}")
 
-        hologram[i] = t.astype(int) # 足し合わせている -> 個別に保持する
-        print(hologram[i])
+        decimal_arr = np.array([[Decimal(str(x).split(".")[1]) for x in row] for row in frac_part], dtype=object) # Decimal型に変換し、.以下をstrとして格納
+        
+        t_array = np.array([[(Decimal(str(int(3))[0])/10).quantize(Decimal('0'), ROUND_HALF_UP) for x in row] for row in decimal_arr], dtype=int) # 不格好なのでなおす
+        # decimal型 -> 0~9 整数が入ることはわかっている　-> 0~
+        # 四捨五入はok
+        print(f"{t_array=}")
+ 
+        hologram = t_array  # t
+        print(f"{hologram=}")
+        # hologram[i] = t.astype(int) # 足し合わせている -> 個別に保持する
+        # print(hologram[i])
 
         # TODO - 2. calculate the ratio of 1
         #  - T(・) ... 小数第一位を取得する関数を作り、1の数を数える
-        #    例) 75%などの確率を得るｓ
-
+        #    例) 75%などの確率を得る
 
         # TODO - (3. calculate the ratio after measurement)
         
@@ -91,7 +88,7 @@ def main():
     print("CGH Calculation completed!")
 
     print("Preparing for display...")
-    show(hologram[0], constants.X, constants.Y) # WARNING - 現在は0番目のhologramだけを表示している
+    show(hologram, constants.X, constants.Y)
 
 
 if __name__ == "__main__":
@@ -119,3 +116,5 @@ if __name__ == "__main__":
 
 # 5. 上記のコードを用いた検証部分
 #     - コードが完成次第、ご相談させてください。
+
+# source .venv/bin/activate
