@@ -69,7 +69,7 @@ def random_hologram(ratio_of_one: float, hologram: np.ndarray, constants: Classi
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
     bool_filter = (random_filter <= ratio_of_one)
-    return hologram & bool_filter
+    return  bool_filter & hologram
 
 def main():
     start = time.time()
@@ -86,8 +86,7 @@ def main():
     print("CGH Calculation completed!")
 
     print("Preparing for display...")
-    show(hologram_raw, constants.X, constants.Y)
-    show(hologram_rand, constants.X, constants.Y)
+    show([hologram_raw,hologram_rand], constants.X, constants.Y)
     # 2枚並べて表示
 
 

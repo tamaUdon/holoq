@@ -113,20 +113,36 @@ def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.n
     return hologram
 
 
-def show(holography: np.ndarray, X: int, Y: int) -> None:
+def show(holography: np.ndarray | list[np.ndarray], X: int, Y: int) -> None:
     """
     ホログラム配列を等高線として表示する。
+    1枚または複数枚のホログラムを並べて表示する。
 
     Args:
-        holography: 表示対象のホログラム配列。
-        X: X 方向画素数。
-        Y: Y 方向画素数。
+        holography: 表示対象のホログラム配列、または配列のリスト
+        X: X 方向画素数
+        Y: Y 方向画素数
     """
-    fig, ax = plt.subplots()
-    color = ax.contourf(range(X), range(Y), holography)
-    fig.colorbar(color)
-    fig.set_label("holography")
-    plt.legend()
+    
+    if isinstance(holography, np.ndarray):
+        holography_list = [holography]
+    else:
+        holography_list = holography
+    
+    n = len(holography_list)
+    fig, axes = plt.subplots(1, n, figsize=(5*n, 4))
+    
+    if n == 1:
+        axes = [axes]
+    
+    for i, holo in enumerate(holography_list):
+        color = axes[i].contourf(range(X), range(Y), holo)
+        cbar = fig.colorbar(color, ax=axes[i])
+        cbar.set_label("holography")
+        axes[i].set_xlabel("X")
+        axes[i].set_ylabel("Y")
+    
+    plt.tight_layout()
     plt.show()
 
 
