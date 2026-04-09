@@ -66,14 +66,12 @@ def target(decimal_arr: np.ndarray) -> np.ndarray:
     )
     mask_5 = decimal_choice == 5  # 5の部分を特定
     count_5 = np.sum(mask_5)  # 5の数を数える
-    # 5 -> 0 or 1どちらかに振り分ける
     decimal_choice[mask_5] = np.random.choice(
-        [0, 1],
+        [0, 1],  # 5 -> 0 or 1どちらかに振り分け
         size=count_5,
         p=[0.5, 0.5],
     )
     _print_probabilities_unique_value(decimal_t_array, "decimal_t_array")
-    _print_probabilities_unique_value(decimal_choice, "decimal_choice")
     return decimal_choice
 
 
@@ -83,14 +81,10 @@ def monopolar_fixed_point(
     """
     monopolar hologramの実装
     """
-    # 1. fixed-point monopolar generated holography
-
     x = np.arange(constants.X, dtype=np.int64)
     y = np.arange(constants.Y, dtype=np.int64)
     xh, yh = np.meshgrid(x, y)
-    hologram = np.full(
-        (len(points), constants.X, constants.Y), 0
-    )  # 0埋めのhologram面 * 物体点数
+    hologram = np.full((len(points), constants.X, constants.Y), 0)
 
     p_sq = 2 * np.pi * constants.pp * constants.pp
     p_denom = constants.λ * constants.d
@@ -98,7 +92,7 @@ def monopolar_fixed_point(
     print(f"{p_sq=}, {p_denom=}, {N=}")
 
     for xj, yj, _ in tqdm.tqdm(points):
-        xhj = xh.astype(np.int32) - xj  # hologram面を一気に計算
+        xhj = xh.astype(np.int32) - xj
         yhj = yh.astype(np.int32) - yj
         x_sq = xhj * xhj
         y_sq = yhj * yhj
@@ -108,6 +102,7 @@ def monopolar_fixed_point(
 
         decimal_arr = _extract_frac_part_from_theta(θ)
         hologram = target(decimal_arr)
+    _print_probabilities_unique_value(hologram, "hologram")
     return hologram
 
 
@@ -155,7 +150,6 @@ def main():
 
     print("Preparing for display...")
     show([hologram_raw, hologram_rand], constants.X, constants.Y)
-    # 2枚並べて表示
 
 
 if __name__ == "__main__":
