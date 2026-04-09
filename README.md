@@ -5,6 +5,11 @@
 ### Install
 
 ```
+# pip が使えるか確認
+# pipは、Python 3.4以降には標準で付属している
+$ pip --version
+# エラーが出たら何かしらの方法で Python をインストールしてください
+
 # uv が入っていなければインストール
 $ pip install uv
 

@@ -13,6 +13,7 @@ dependencies = [
     "qiskit>=2.2.3",
     "qiskit-aer>=0.17.2",
     "qiskit-ibm-runtime>=0.43.1",
+    "ruff>=0.14.6",
     "sympy>=1.14.0",
     "tqdm>=4.67.1",
 ]
@@ -23,3 +24,7 @@ dev = [
     "pre-commit>=4.5.0",
  "ruff>=0.14.6",
 ]
+
+[tool.ruff]
+line-length = 78
+select = ["E", "F", "N", "I"]

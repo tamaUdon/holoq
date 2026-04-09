@@ -4,18 +4,19 @@ import time
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import ClassicalConstants, QuantumConstants
+from constants import ClassicalConstants
 
 
 def create_single_point(constants: ClassicalConstants) -> np.ndarray:
     """
-    画面中心に 1 点だけ配置した点群を生成する。
+    create_single_point 1点の点群を作成する関数
 
-    Args:
-        constants: 点群生成に使用する定数。
+    - X*Yの中心に物体点 (1点) がある想定
 
-    Returns:
-        形状 `(1, 3)` の点群配列。
+    :param constants: 定数クラスのオブジェクト
+    :type constants: ClassicalConstants
+    :return: デバッグ用の物体点 (1点)
+    :rtype: np.ndarray
     """
     x0 = constants.X / 2
     y0 = constants.Y / 2
@@ -24,18 +25,18 @@ def create_single_point(constants: ClassicalConstants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_small_opening(
-    constants: ClassicalConstants | QuantumConstants, width: int = 10
-) -> np.ndarray:
+def create_small_opening(constants: ClassicalConstants, width: int = 10) -> np.ndarray:
     """
-    画面中心に正方形状の小さな開口点群を生成する。
+    create_small_opening 小さな開口部の点群を作成する関数
 
-    Args:
-        constants: 点群生成に使用する定数。
-        width: 一辺あたりの点数。
+    - X*Yの中心に物体点 (10*10点) がある想定
 
-    Returns:
-        形状 `(width * width, 3)` の点群配列。
+    :param constants: 定数クラスのオブジェクト
+    :type constants: ClassicalConstants
+    :param width: int
+    :typewidth: 開口部の幅
+    :return: デバッグ用の物体点 (1点)
+    :rtype: np.ndarray
     """
 
     x0 = constants.X / 2
@@ -52,15 +53,12 @@ def create_small_opening(
     return points
 
 
-def create_four_points(constants: ClassicalConstants | QuantumConstants) -> np.ndarray:
+def create_four_points(constants: ClassicalConstants) -> np.ndarray:
     """
-    画面中心の周囲に 4 点を配置した点群を生成する。
+    create_rect_points 4点の点群を作成する関数
 
-    Args:
-        constants: 点群生成に使用する定数。
-
-    Returns:
-        形状 `(4, 3)` の点群配列。
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
     """
 
     center = np.array([constants.X / 2, constants.Y / 2, constants.d])
@@ -76,17 +74,12 @@ def create_four_points(constants: ClassicalConstants | QuantumConstants) -> np.n
     return center + signs * half
 
 
-def create_rectangle_points(
-    constants: ClassicalConstants | QuantumConstants,
-) -> np.ndarray:
+def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
     """
-    四角形の輪郭に対応する点群を生成する。
+    create_rectangle_points 四角形の点群を作成する関数
 
-    Args:
-        constants: 点群生成に使用する定数。
-
-    Returns:
-        四角形輪郭上の点群配列。
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
     """
 
     x_size = constants.X // 2  # Xの1/2サイズの四角形を作る
@@ -107,16 +100,6 @@ def create_rectangle_points(
 
 
 def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.ndarray:
-    """
-    古典的な点群法でホログラムを計算する。
-
-    Args:
-        points: 物体点群。各要素は `(x, y, z)`。
-        constants: ホログラム計算に使用する定数。
-
-    Returns:
-        形状 `(Y, X)` のホログラム配列。
-    """
     x = np.arange(constants.X, dtype=np.float64) * constants.pp
     y = np.arange(constants.Y, dtype=np.float64) * constants.pp
     xx, yy = np.meshgrid(x, y)
@@ -130,20 +113,36 @@ def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.n
     return hologram
 
 
-def show(holography: np.ndarray, X: int, Y: int) -> None:
+def show(holography: np.ndarray | list[np.ndarray], X: int, Y: int) -> None:
     """
     ホログラム配列を等高線として表示する。
+    1枚または複数枚のホログラムを並べて表示する。
 
     Args:
-        holography: 表示対象のホログラム配列。
-        X: X 方向画素数。
-        Y: Y 方向画素数。
+        holography: 表示対象のホログラム配列、または配列のリスト
+        X: X 方向画素数
+        Y: Y 方向画素数
     """
-    fig, ax = plt.subplots()
-    color = ax.contourf(range(X), range(Y), holography)
-    fig.colorbar(color)
-    fig.set_label("holography")
-    plt.legend()
+    
+    if isinstance(holography, np.ndarray):
+        holography_list = [holography]
+    else:
+        holography_list = holography
+    
+    n = len(holography_list)
+    fig, axes = plt.subplots(1, n, figsize=(5*n, 4))
+    
+    if n == 1:
+        axes = [axes]
+    
+    for i, holo in enumerate(holography_list):
+        color = axes[i].contourf(range(X), range(Y), holo)
+        cbar = fig.colorbar(color, ax=axes[i])
+        cbar.set_label("holography")
+        axes[i].set_xlabel("X")
+        axes[i].set_ylabel("Y")
+    
+    plt.tight_layout()
     plt.show()
 
 
