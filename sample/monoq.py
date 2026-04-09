@@ -23,6 +23,7 @@ def _print_probabilities_unique_value(array: np.ndarray, name: str):
     """
     Numpy配列内の要素数をカウントし、出現確率をprintする
     """
+
     values, counts = np.unique(array, return_counts=True)
     probabilities = counts / array.size
     print(f"{name}の統計情報")
@@ -81,6 +82,7 @@ def monopolar_fixed_point(
     """
     monopolar hologramの実装
     """
+
     x = np.arange(constants.X, dtype=np.int64)
     y = np.arange(constants.Y, dtype=np.int64)
     xh, yh = np.meshgrid(x, y)
@@ -98,7 +100,7 @@ def monopolar_fixed_point(
         y_sq = yhj * yhj
         M = x_sq + y_sq  # M-bit # noqa: N806
         θ = M * N
-        print(f"{M=} , {θ=}")
+        # print(f"{M=} , {θ=}")
 
         decimal_arr = _extract_frac_part_from_theta(θ)
         hologram = target(decimal_arr)
@@ -125,6 +127,7 @@ def random_hologram(
     """
     measureの結果を元にホログラムのピクセルを1か0にフィルターする
     """
+
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
     bool_filter = random_filter <= float(ratio_of_one)
@@ -139,7 +142,6 @@ def main():
     points = create_single_point(constants)
     hologram_raw = monopolar_fixed_point(points, constants)
     ratio_of_one = measure(N=constants.X * constants.Y, hologram=hologram_raw)
-
     hologram_rand = random_hologram(
         ratio_of_one=ratio_of_one, hologram=hologram_raw, constants=constants
     )
