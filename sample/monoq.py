@@ -69,9 +69,10 @@ def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
     frac_scaled = (frac_part * 255).astype(
         np.uint8  # uint8 に変換
     )  # unpackbits は uint8 のみ対応
-    binary_frac = np.unpackbits(frac_scaled, axis=1, bitorder="little")
 
-    print(f"{binary_frac=}")
+    binary_frac = np.unpackbits(  # 2進数に変換
+        frac_scaled, axis=1, bitorder="big"
+    ).reshape(512, 512, 8)  # 例) [3] -> [1,1]
 
     return binary_frac
 
@@ -106,13 +107,16 @@ def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
 def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
     """
     関数T(・)の実装
-    - binaryにしたθの小数部を受け取る (little endian)
+    - binaryにしたθの小数部を受け取る (big endian)
     - 任意の桁を取り出し、0 or 1の配列をつくって返却する
     """
     print(theta_frac.shape)
 
-    # [:,0]...1文字目を取り出す (little endianなので最下位の桁)
-    binary_choice = theta_frac[:, 0]  # 全ての行の各列1文字目を抽出
+    # [:,0]...1文字目を取り出す (big endian最上位の桁)
+    binary_choice = theta_frac[:, :, 0]  # 全ての行の各列1文字目を抽出
+    _print_probabilities_unique_value(
+        theta_frac[:, :, 0], "theta_frac[:, :, 0]"
+    )
 
     _print_probabilities_unique_value(binary_choice, "binary_choice")
     return binary_choice
