@@ -11,14 +11,20 @@ from constants import ClassicalConstants
 from pointcloud import create_single_point, show
 
 ### === Settings === ###
+# デバッグモードフラグ
 DEBUG = False
+# 2進数モードフラグ
+BINARY = True
 # numpy 固定小数モード
 np.set_printoptions(precision=16, floatmode="fixed", suppress=False)
+# ログを全て出力する設定
+np.set_printoptions(threshold=np.inf)  # type: ignore
+# Decimal 精度固定
 getcontext().prec = 16
-np.set_printoptions(threshold=np.inf)  # type: ignore # ログを全て出す
 ### ================ ###
 
 
+### ====== Tools ====== ###
 def _print_probabilities_unique_value(array: np.ndarray, name: str):
     """
     Numpy配列内の要素数をカウントし、出現確率をprintする
@@ -31,9 +37,9 @@ def _print_probabilities_unique_value(array: np.ndarray, name: str):
         print(f"要素: {v}, カウント: {c}, 確率: {p:.2f} \n")
 
 
-def _extract_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
+def _extract_decimal_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
     """
-    θ=M*N から小数部を取り出す
+    10進数ver. θ=M*N から小数部を取り出す
     - 整数部と小数部に分ける
     - 小数部を抜き出す
     - decimal型に変換
@@ -49,11 +55,33 @@ def _extract_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
     return decimal_arr
 
 
-def target(decimal_arr: np.ndarray) -> np.ndarray:
+def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
+    """
+    2進数ver. θ=M*N から小数部を取り出す
+    - 整数部と小数部に分ける
+    - 小数部を抜き出す
+    - binaryに変換
+
+    return: 小数部<Decimal>
+    """
+
+    frac_part, int_part = np.modf(θ)  # 例) 1.5 -> (0.5, 1.0)
+    frac_scaled = (frac_part * 255).astype(
+        np.uint8  # uint8 に変換
+    )  # unpackbits は uint8 のみ対応
+
+    binary_frac = np.unpackbits(  # 2進数に変換
+        frac_scaled, axis=1, bitorder="big"
+    ).reshape(512, 512, 8)  # 例) [3] -> [1,1]
+
+    return binary_frac
+
+
+def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
     """
     関数T(・)の実装
     - Decimal型の小数部を受け取る
-    -
+    - 0 or 1半々に振り分けて返却する
     """
 
     decimal_t_array = np.array(
@@ -76,12 +104,40 @@ def target(decimal_arr: np.ndarray) -> np.ndarray:
     return decimal_choice
 
 
+def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
+    """
+    関数T(・)の実装
+    - binaryにしたθの小数部を受け取る (big endian)
+    - 任意の桁を取り出し、0 or 1の配列をつくって返却する
+    """
+    print(theta_frac.shape)
+
+    # [:,0]...1文字目を取り出す (big endian最上位の桁)
+    binary_choice = theta_frac[:, :, 0]  # 全ての行の各列1文字目を抽出
+    _print_probabilities_unique_value(
+        theta_frac[:, :, 0], "theta_frac[:, :, 0]"
+    )
+
+    _print_probabilities_unique_value(binary_choice, "binary_choice")
+    return binary_choice
+
+
 def monopolar_fixed_point(
-    points: np.ndarray, constants: ClassicalConstants
+    points: np.ndarray, constants: ClassicalConstants, binary: bool
 ) -> np.ndarray:
     """
-    monopolar hologramの実装
+    monopolar hologramの実装 10進数
+    - points: 点群
+    - constants: 定数オブジェクト
+    - binary: 2進数版を実行するかどうかのフラグ
     """
+
+    if binary:
+        __extract_frac_part_from_theta = _extract_binary_frac_part_from_theta
+        __target = _target_binary
+    else:
+        __extract_frac_part_from_theta = _extract_decimal_frac_part_from_theta
+        __target = _target_decimal
 
     x = np.arange(constants.X, dtype=np.int64)
     y = np.arange(constants.Y, dtype=np.int64)
@@ -102,8 +158,8 @@ def monopolar_fixed_point(
         θ = M * N
         # print(f"{M=} , {θ=}")
 
-        decimal_arr = _extract_frac_part_from_theta(θ)
-        hologram = target(decimal_arr)
+        theta_frac = __extract_frac_part_from_theta(θ)
+        hologram = __target(theta_frac)
     _print_probabilities_unique_value(hologram, "hologram")
     return hologram
 
@@ -135,12 +191,15 @@ def random_hologram(
     return bool_filter & hologram
 
 
+### ====== Handler ====== ###
 def main():
     start = time.time()
 
     constants = ClassicalConstants()
     points = create_single_point(constants)
-    hologram_raw = monopolar_fixed_point(points, constants)
+    hologram_raw = None
+
+    hologram_raw = monopolar_fixed_point(points, constants, BINARY)
     ratio_of_one = measure(N=constants.X * constants.Y, hologram=hologram_raw)
     hologram_rand = random_hologram(
         ratio_of_one=ratio_of_one, hologram=hologram_raw, constants=constants
@@ -158,5 +217,4 @@ if __name__ == "__main__":
     main()
 
 # TODO - bin() を使って計算ができるようにする
-# decimal型 -> 1~9 の整数が入ることはわかっている
-#   -> 1~4...0, 6~9...1, 5 ... 0|1半々にする random()
+# TODO -
