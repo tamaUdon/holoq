@@ -129,6 +129,7 @@ def show(
     x: int,
     y: int,
     binary: bool,
+    target: int = 0,
     dir: Path = Path(),
     save: bool = False,
 ) -> None:
@@ -168,7 +169,7 @@ def show(
         if not dir.exists():
             dir.mkdir()
         now = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-        outpath = dir / (f"monopolar_{label}" + f"_{now}" + ".png")
+        outpath = dir / (f"monopolar_{label}_t{target}" + f"_{now}" + ".png")
         plt.savefig(outpath, dpi=350, bbox_inches="tight")
 
     plt.tight_layout()
