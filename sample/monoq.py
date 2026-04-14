@@ -1,11 +1,14 @@
 import time
+from datetime import datetime
 from decimal import (
     Decimal,
     getcontext,
 )
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import tqdm
 from constants import ClassicalConstants
 from pointcloud import create_single_point, show
@@ -25,7 +28,9 @@ getcontext().prec = 16
 
 
 ### ====== Tools ====== ###
-def _print_probabilities_unique_value(array: np.ndarray, name: str):
+def _print_probabilities_unique_value(
+    array: np.ndarray, name: str, dir: str = "", save: bool = False
+):
     """
     Numpy配列内の要素数をカウントし、出現確率をprintする
     """
@@ -35,6 +40,36 @@ def _print_probabilities_unique_value(array: np.ndarray, name: str):
     print(f"{name}の統計情報")
     for v, c, p in zip(values, counts, probabilities):
         print(f"要素: {v}, カウント: {c}, 確率: {p:.2f} \n")
+
+    if save:
+        _save_probabilities(Path(dir), name, values, counts, probabilities)
+
+
+def _save_probabilities(
+    dir: Path,
+    name: str,
+    values: np.ndarray,
+    counts: np.ndarray,
+    probabilities: np.ndarray,
+):
+    """
+    統計情報をファイルに保存する
+    fname ... ファイルのパス
+    """
+    now = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+    fname = dir / (name + f"_{now}" + ".csv")
+
+    if not dir.exists():
+        dir.mkdir()
+
+    with open(fname, "w", encoding="utf-8") as f:
+        pd.DataFrame(
+            {
+                "value": values,
+                "count": counts,
+                "probability": probabilities,
+            }
+        ).to_csv(f, index=False)
 
 
 def _extract_decimal_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
@@ -100,7 +135,13 @@ def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
         size=count_5,
         p=[0.5, 0.5],
     )
-    _print_probabilities_unique_value(decimal_t_array, "decimal_t_array")
+
+    _print_probabilities_unique_value(
+        decimal_t_array,
+        name="decimal_t_array",
+        dir="results/stats",
+        save=True,
+    )
     return decimal_choice
 
 
@@ -115,10 +156,15 @@ def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
     # [:,0]...1文字目を取り出す (big endian最上位の桁)
     binary_choice = theta_frac[:, :, 0]  # 全ての行の各列1文字目を抽出
     _print_probabilities_unique_value(
-        theta_frac[:, :, 0], "theta_frac[:, :, 0]"
+        theta_frac[:, :, 0], name="theta_frac[:, :, 0]"
     )
 
-    _print_probabilities_unique_value(binary_choice, "binary_choice")
+    _print_probabilities_unique_value(
+        binary_choice,
+        name="binary_choice",
+        dir="results/stats",
+        save=True,
+    )
     return binary_choice
 
 
@@ -160,7 +206,7 @@ def monopolar_fixed_point(
 
         theta_frac = __extract_frac_part_from_theta(θ)
         hologram = __target(theta_frac)
-    _print_probabilities_unique_value(hologram, "hologram")
+    _print_probabilities_unique_value(hologram, "hologram", "hologram.csv")
     return hologram
 
 
@@ -210,11 +256,15 @@ def main():
     print("CGH Calculation completed!")
 
     print("Preparing for display...")
-    show([hologram_raw, hologram_rand], constants.X, constants.Y)
+    show(
+        [hologram_raw, hologram_rand],
+        constants.X,
+        constants.Y,
+        BINARY,
+        save=True,
+        dir=Path("results/images/monopolars"),
+    )
 
 
 if __name__ == "__main__":
     main()
-
-# TODO - bin() を使って計算ができるようにする
-# TODO -

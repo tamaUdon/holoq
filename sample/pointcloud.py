@@ -1,10 +1,13 @@
 # 点群法でホログラムを表示するスクリプト
-
 import time
-import tqdm
-import numpy as np
+from datetime import datetime
+
 import matplotlib.pyplot as plt
+import numpy as np
+import tqdm
 from constants import ClassicalConstants
+import pandas as pd
+from pathlib import Path
 
 
 def create_single_point(constants: ClassicalConstants) -> np.ndarray:
@@ -25,7 +28,9 @@ def create_single_point(constants: ClassicalConstants) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def create_small_opening(constants: ClassicalConstants, width: int = 10) -> np.ndarray:
+def create_small_opening(
+    constants: ClassicalConstants, width: int = 10
+) -> np.ndarray:
     """
     create_small_opening 小さな開口部の点群を作成する関数
 
@@ -86,8 +91,12 @@ def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
     dx = np.array([constants.X / 4, 0.0, 0.0])
     dy = np.array([0.0, constants.Y / 4, 0.0])
 
-    x_line = np.array([[x, constants.Y // 2, constants.d] for x in range(x_size)])
-    y_line = np.array([[constants.X // 2, y, constants.d] for y in range(x_size)])
+    x_line = np.array(
+        [[x, constants.Y // 2, constants.d] for x in range(x_size)]
+    )
+    y_line = np.array(
+        [[constants.X // 2, y, constants.d] for y in range(x_size)]
+    )
 
     # lineをスライドさせる TODO - numpy関数を使う
     top = x_line + dy + dx
@@ -99,7 +108,9 @@ def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
     return rectangle
 
 
-def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.ndarray:
+def generate_hologram(
+    points: np.ndarray, constants: ClassicalConstants
+) -> np.ndarray:
     x = np.arange(constants.X, dtype=np.float64) * constants.pp
     y = np.arange(constants.Y, dtype=np.float64) * constants.pp
     xx, yy = np.meshgrid(x, y)
@@ -113,7 +124,14 @@ def generate_hologram(points: np.ndarray, constants: ClassicalConstants) -> np.n
     return hologram
 
 
-def show(holography: np.ndarray | list[np.ndarray], X: int, Y: int) -> None:
+def show(
+    holography: np.ndarray | list[np.ndarray],
+    x: int,
+    y: int,
+    binary: bool,
+    dir: Path = Path(),
+    save: bool = False,
+) -> None:
     """
     ホログラム配列を等高線として表示する。
     1枚または複数枚のホログラムを並べて表示する。
@@ -123,30 +141,42 @@ def show(holography: np.ndarray | list[np.ndarray], X: int, Y: int) -> None:
         X: X 方向画素数
         Y: Y 方向画素数
     """
-    
+
     if isinstance(holography, np.ndarray):
         holography_list = [holography]
     else:
         holography_list = holography
-    
+
     n = len(holography_list)
-    fig, axes = plt.subplots(1, n, figsize=(5*n, 4))
-    
+    fig, axes = plt.subplots(1, n, figsize=(5 * n, 4))
+
     if n == 1:
         axes = [axes]
-    
+
+    label = "hologram_Decimal"
+    if binary:
+        label = "hologram_Binary"
+
     for i, holo in enumerate(holography_list):
-        color = axes[i].contourf(range(X), range(Y), holo)
+        color = axes[i].contourf(range(x), range(y), holo)
         cbar = fig.colorbar(color, ax=axes[i])
-        cbar.set_label("holography")
+        cbar.set_label(label)
         axes[i].set_xlabel("X")
         axes[i].set_ylabel("Y")
-    
+
+    if save:
+        if not dir.exists():
+            dir.mkdir()
+        now = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+        outpath = dir / (f"monopolar_{label}" + f"_{now}" + ".png")
+        plt.savefig(outpath, dpi=350, bbox_inches="tight")
+
     plt.tight_layout()
     plt.show()
 
 
 def main():
+    binary = False  # 10進
     start = time.time()
     constants = ClassicalConstants()
 
@@ -158,7 +188,7 @@ def main():
     print(print("Cal time:{} sec".format(end - start)))
 
     print("Preparing for display...")
-    show(hologram, constants.X, constants.Y)
+    show(hologram, constants.X, constants.Y, binary)
 
 
 if __name__ == "__main__":
