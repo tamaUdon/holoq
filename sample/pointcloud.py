@@ -122,7 +122,11 @@ def generate_hologram(
 
 
 def show(
-    holography: np.ndarray | list[np.ndarray], x: int, y: int, binary: bool
+    holography: np.ndarray | list[np.ndarray],
+    x: int,
+    y: int,
+    binary: bool,
+    save: bool = False,
 ) -> None:
     """
     ホログラム配列を等高線として表示する。
@@ -158,6 +162,9 @@ def show(
 
     plt.tight_layout()
     plt.show()
+
+def _save_image(imgs: list):
+    
 
 
 def main():

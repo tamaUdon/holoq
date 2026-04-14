@@ -1,15 +1,17 @@
 import time
+from datetime import datetime
 from decimal import (
     Decimal,
     getcontext,
 )
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import tqdm
 from constants import ClassicalConstants
 from pointcloud import create_single_point, show
-import pandas as pd
 
 ### === Settings === ###
 # デバッグモードフラグ
@@ -27,7 +29,7 @@ getcontext().prec = 16
 
 ### ====== Tools ====== ###
 def _print_probabilities_unique_value(
-    array: np.ndarray, name: str, fname: str = "", save: bool = False
+    array: np.ndarray, name: str, dir: str = "", save: bool = False
 ):
     """
     Numpy配列内の要素数をカウントし、出現確率をprintする
@@ -40,11 +42,12 @@ def _print_probabilities_unique_value(
         print(f"要素: {v}, カウント: {c}, 確率: {p:.2f} \n")
 
     if save:
-        _save_probabilities(fname, values, counts, probabilities)
+        _save_probabilities(Path(dir), name, values, counts, probabilities)
 
 
 def _save_probabilities(
-    fname: str,
+    dir: Path,
+    name: str,
     values: np.ndarray,
     counts: np.ndarray,
     probabilities: np.ndarray,
@@ -53,6 +56,12 @@ def _save_probabilities(
     統計情報をファイルに保存する
     fname ... ファイルのパス
     """
+    now = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+    fname = dir / (name + f"_{now}" + ".csv")
+
+    if not dir.exists():
+        dir.mkdir()
+
     with open(fname, "w", encoding="utf-8") as f:
         pd.DataFrame(
             {
@@ -126,10 +135,11 @@ def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
         size=count_5,
         p=[0.5, 0.5],
     )
+
     _print_probabilities_unique_value(
         decimal_t_array,
         name="decimal_t_array",
-        fname="{}decimal_t_array.csv",
+        dir="results/stats",
         save=True,
     )
     return decimal_choice
@@ -149,7 +159,12 @@ def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
         theta_frac[:, :, 0], name="theta_frac[:, :, 0]"
     )
 
-    _print_probabilities_unique_value(binary_choice, name="binary_choice")
+    _print_probabilities_unique_value(
+        binary_choice,
+        name="binary_choice",
+        dir="results/stats",
+        save=True,
+    )
     return binary_choice
 
 
@@ -241,11 +256,14 @@ def main():
     print("CGH Calculation completed!")
 
     print("Preparing for display...")
-    show([hologram_raw, hologram_rand], constants.X, constants.Y, BINARY)
+    show(
+        [hologram_raw, hologram_rand],
+        constants.X,
+        constants.Y,
+        BINARY,
+        save=True,
+    )
 
 
 if __name__ == "__main__":
     main()
-
-# TODO - bin() を使って計算ができるようにする
-# TODO -
