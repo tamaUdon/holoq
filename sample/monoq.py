@@ -19,7 +19,7 @@ DEBUG = False
 # 2進数モードフラグ
 BINARY = True
 # ターゲットビット
-TARGET = 5
+TARGET = 4
 # 統計情報の保存先ディレクトリ
 STATS_DIR = "results/stats/exp"
 # 画像の保存先ディレクトリ
@@ -162,7 +162,7 @@ def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
     # [:,0]...1文字目を取り出す (big endian最上位の桁)
     binary_choice = theta_frac[:, :, TARGET]  # 全ての行の各列1文字目を抽出
     _print_probabilities_unique_value(
-        theta_frac[:, :, TARGET], name="theta_frac[:, :, 0]"
+        theta_frac[:, :, TARGET], name=f"theta_frac[:, :, {TARGET}]"
     )
 
     _print_probabilities_unique_value(
@@ -220,7 +220,7 @@ def measure(N: int, hologram: np.ndarray) -> Fraction:  # noqa: N803
     """
     1をカウントし、ホログラム内の1の割合を返却する
     """
-    count_one = np.count_nonzero(hologram == 1)
+    count_one = np.count_nonzero(hologram)
     ratio_of_one = Fraction(count_one.item(), N)
     print(f"{count_one=}, {ratio_of_one=}")
 
