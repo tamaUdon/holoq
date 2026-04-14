@@ -18,6 +18,12 @@ from pointcloud import create_single_point, show
 DEBUG = False
 # 2進数モードフラグ
 BINARY = True
+# ターゲットビット
+TARGET = 5
+# 統計情報の保存先ディレクトリ
+STATS_DIR = "results/stats/exp"
+# 画像の保存先ディレクトリ
+IMG_DIR = "results/images/monopolars/exp"
 # numpy 固定小数モード
 np.set_printoptions(precision=16, floatmode="fixed", suppress=False)
 # ログを全て出力する設定
@@ -138,8 +144,8 @@ def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
 
     _print_probabilities_unique_value(
         decimal_t_array,
-        name="decimal_t_array",
-        dir="results/stats",
+        name="decimal_t_array",  # TODO - 引数かconstantsから受け取る
+        dir=STATS_DIR,
         save=True,
     )
     return decimal_choice
@@ -154,15 +160,15 @@ def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
     print(theta_frac.shape)
 
     # [:,0]...1文字目を取り出す (big endian最上位の桁)
-    binary_choice = theta_frac[:, :, 0]  # 全ての行の各列1文字目を抽出
+    binary_choice = theta_frac[:, :, TARGET]  # 全ての行の各列1文字目を抽出
     _print_probabilities_unique_value(
-        theta_frac[:, :, 0], name="theta_frac[:, :, 0]"
+        theta_frac[:, :, TARGET], name="theta_frac[:, :, 0]"
     )
 
     _print_probabilities_unique_value(
         binary_choice,
-        name="binary_choice",
-        dir="results/stats",
+        name=f"binary_choice_t{TARGET}",
+        dir=STATS_DIR,
         save=True,
     )
     return binary_choice
@@ -261,8 +267,9 @@ def main():
         constants.X,
         constants.Y,
         BINARY,
+        TARGET,
         save=True,
-        dir=Path("results/images/monopolars"),
+        dir=Path(IMG_DIR),
     )
 
 
