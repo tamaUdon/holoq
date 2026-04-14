@@ -19,7 +19,7 @@ DEBUG = False
 # 2進数モードフラグ
 BINARY = True
 # ターゲットビット
-TARGET = 4
+TARGET = 0
 # 統計情報の保存先ディレクトリ
 STATS_DIR = "results/stats/exp"
 # 画像の保存先ディレクトリ
@@ -275,3 +275,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO - 物体点数を1,4,10と増やす
+# TODO - ランダムの画質を確認する
