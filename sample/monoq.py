@@ -262,6 +262,7 @@ def main():
         constants.Y,
         BINARY,
         save=True,
+        dir=Path("results/images/monopolars"),
     )
 
 

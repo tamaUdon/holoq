@@ -1,10 +1,13 @@
 # 点群法でホログラムを表示するスクリプト
-
 import time
-import tqdm
-import numpy as np
+from datetime import datetime
+
 import matplotlib.pyplot as plt
+import numpy as np
+import tqdm
 from constants import ClassicalConstants
+import pandas as pd
+from pathlib import Path
 
 
 def create_single_point(constants: ClassicalConstants) -> np.ndarray:
@@ -126,6 +129,7 @@ def show(
     x: int,
     y: int,
     binary: bool,
+    dir: Path = Path(),
     save: bool = False,
 ) -> None:
     """
@@ -149,9 +153,9 @@ def show(
     if n == 1:
         axes = [axes]
 
-    label = "Hologram - Decimal"
+    label = "hologram_Decimal"
     if binary:
-        label = "Hologram - Binary"
+        label = "hologram_Binary"
 
     for i, holo in enumerate(holography_list):
         color = axes[i].contourf(range(x), range(y), holo)
@@ -160,14 +164,19 @@ def show(
         axes[i].set_xlabel("X")
         axes[i].set_ylabel("Y")
 
+    if save:
+        if not dir.exists():
+            dir.mkdir()
+        now = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+        outpath = dir / (f"monopolar_{label}" + f"_{now}" + ".png")
+        plt.savefig(outpath, dpi=350, bbox_inches="tight")
+
     plt.tight_layout()
     plt.show()
 
-def _save_image(imgs: list):
-    
-
 
 def main():
+    binary = False  # 10進
     start = time.time()
     constants = ClassicalConstants()
 
@@ -179,7 +188,7 @@ def main():
     print(print("Cal time:{} sec".format(end - start)))
 
     print("Preparing for display...")
-    show(hologram, constants.X, constants.Y)
+    show(hologram, constants.X, constants.Y, binary)
 
 
 if __name__ == "__main__":
