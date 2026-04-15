@@ -11,7 +11,12 @@ import numpy as np
 import pandas as pd
 import tqdm
 from constants import ClassicalConstants
-from pointcloud import create_single_point, show
+from pointcloud import (
+    create_single_point,
+    create_four_points,
+    create_rectangle_points,
+    show,
+)
 
 ### === Settings === ###
 # デバッグモードフラグ
@@ -249,6 +254,8 @@ def main():
 
     constants = ClassicalConstants()
     points = create_single_point(constants)
+    # points = create_four_points(constants)
+    # points = create_rectangle_points(constants)
     hologram_raw = None
 
     hologram_raw = monopolar_fixed_point(points, constants, BINARY)
@@ -276,5 +283,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# TODO - 物体点数を1,4,10と増やす
+# TODO - 物体点数を1,4,四角と増やす -> ok
+# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる
+#   1点の時5*5, 4点と四角の時6*6
 # TODO - ランダムの画質を確認する
