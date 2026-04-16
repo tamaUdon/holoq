@@ -108,6 +108,32 @@ def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
     return rectangle
 
 
+def create_sin_wave(constants: ClassicalConstants, debug=False) -> np.ndarray:
+    """
+    create_sin_wave sin波の点群を作成する関数
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: Constants
+    """
+    x = np.arange(constants.X, dtype=np.float64)
+    center_y = constants.Y / 2
+    y = center_y + (constants.Y / 10) * np.sin((6 * np.pi / constants.X) * x)
+    z = np.full(
+        constants.X, constants.d, dtype=np.float64
+    )  # zは全てconstants.d
+
+    if debug:
+        fig, ax = plt.subplots()
+        ax.plot(x, y, linewidth=1)
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_title("Sin Wave Pointcloud")
+        plt.tight_layout()
+        plt.show()
+
+    return np.column_stack((x, y, z))
+
+
 def generate_hologram(
     points: np.ndarray, constants: ClassicalConstants
 ) -> np.ndarray:
@@ -181,7 +207,7 @@ def main():
     start = time.time()
     constants = ClassicalConstants()
 
-    points = create_rectangle_points(constants)  # 四角形 # TODO - 分岐
+    points = create_sin_wave(constants, debug=False)  # 四角形 # TODO - 分岐
     hologram = generate_hologram(points, constants)
     print("CGH Calculation completed!")
 
