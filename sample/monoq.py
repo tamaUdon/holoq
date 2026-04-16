@@ -7,21 +7,23 @@ from decimal import (
 from fractions import Fraction
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tqdm
 from constants import ClassicalConstants
+from monopolar import monopolar_numpy
 from pointcloud import (
-    create_single_point,
     create_four_points,
     create_rectangle_points,
     create_sin_wave,
+    create_single_point,
     show,
 )
 
 ### === Settings === ###
 # デバッグモードフラグ
-DEBUG = False
+DEBUG = True
 # 2進数モードフラグ
 BINARY = True
 # ターゲットビット
@@ -197,28 +199,53 @@ def monopolar_fixed_point(
         __extract_frac_part_from_theta = _extract_decimal_frac_part_from_theta
         __target = _target_decimal
 
-    x = np.arange(constants.X, dtype=np.int64)
-    y = np.arange(constants.Y, dtype=np.int64)
-    xh, yh = np.meshgrid(x, y)
-    hologram = np.full((len(points), constants.X, constants.Y), 0)
 
-    p_sq = 2 * np.pi * constants.pp * constants.pp
-    p_denom = constants.λ * constants.d
-    N = p_sq / p_denom  # noqa: N806
-    print(f"{p_sq=}, {p_denom=}, {N=}")
+    if DEBUG:
+        ### float実装版, 比較用 
+        # WARNING - うまく表示されてない (6*6のzoneplate) 
+        #           np.cos()を用いたmonopolarの場合は問題ない
+        # TODO - pp, d, λのかけ方を確認する
+        x = np.arange(constants.X, dtype=np.float64) * constants.pp
+        y = np.arange(constants.Y, dtype=np.float64) * constants.pp
+        xx, yy = np.meshgrid(x, y)
+        hologram = np.zeros((constants.Y, constants.X), dtype=np.float64)
 
-    for xj, yj, _ in tqdm.tqdm(points):
-        xhj = xh.astype(np.int32) - xj
-        yhj = yh.astype(np.int32) - yj
-        x_sq = xhj * xhj
-        y_sq = yhj * yhj
-        M = x_sq + y_sq  # M-bit # noqa: N806
-        θ = M * N
-        # print(f"{M=} , {θ=}")
+        for xj, yj, zj in tqdm.tqdm(points):
+            hx = xx - xj * constants.pp
+            hy = yy - yj * constants.pp
+            rho = constants.k / zj
+            phase = rho * (hx * hx + hy * hy + zj * zj)
 
-        theta_frac = __extract_frac_part_from_theta(θ)
-        hologram += __target(theta_frac)
-    _print_probabilities_unique_value(hologram, "hologram", "hologram.csv")
+            theta_frac = __extract_frac_part_from_theta(phase)
+            hologram += __target(theta_frac)
+
+        print(f"{hologram=}")
+
+    else:
+        ### 固定小数実装版
+        x = np.arange(constants.X, dtype=np.int64) 
+        y = np.arange(constants.Y, dtype=np.int64) 
+        xh, yh = np.meshgrid(x, y)
+        hologram = np.zeros((constants.Y, constants.X), dtype=np.int64)
+
+        p_sq = 2 * np.pi * constants.pp * constants.pp
+        p_denom = constants.λ * constants.d
+        N = p_sq / p_denom  # noqa: N806
+        print(f"{p_sq=}, {p_denom=}, {N=}")
+
+        for xj, yj, zj in tqdm.tqdm(points):
+            xhj = xh.astype(np.int32) - xj 
+            yhj = yh.astype(np.int32) - yj
+            x_sq = xhj * xhj
+            y_sq = yhj * yhj
+            z_sq = zj * zj
+
+            M = x_sq + y_sq + z_sq  # M-bit # noqa: N806
+            θ = M * N
+    
+            theta_frac = __extract_frac_part_from_theta(θ)
+            hologram += __target(theta_frac)
+
     return hologram
 
 
@@ -246,7 +273,12 @@ def random_hologram(
     random_filter = rng.random((constants.X, constants.Y))
     bool_filter = random_filter <= float(ratio_of_one)
 
-    return bool_filter & hologram
+    if DEBUG:
+        print(f"{type(bool_filter)=}")
+        print(f"{type(hologram)=}")
+        print(f"{bool_filter=}")
+
+    return bool_filter & hologram.astype(np.int64)
 
 
 ### ====== Handler ====== ###
@@ -260,13 +292,18 @@ def main():
     # points = create_sin_wave(constants, debug=False)
     hologram_raw = None
 
+    # hologram_raw = monopolar(points, constants)
+    # show(hologram_raw,constants.X,constants.Y,binary=False,save=False)
+    
     hologram_raw = monopolar_fixed_point(points, constants, BINARY)
+    _print_probabilities_unique_value(hologram_raw, "hologram", "hologram.csv")
     ratio_of_one = measure(N=constants.X * constants.Y, hologram=hologram_raw)
     hologram_rand = random_hologram(
         ratio_of_one=ratio_of_one, hologram=hologram_raw, constants=constants
     )
 
     end = time.time()
+    print(f"【{DEBUG=}】")
     print(print("Cal time:{} sec".format(end - start)))
     print("CGH Calculation completed!")
 
