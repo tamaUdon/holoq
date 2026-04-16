@@ -15,6 +15,7 @@ from pointcloud import (
     create_single_point,
     create_four_points,
     create_rectangle_points,
+    create_sin_wave,
     show,
 )
 
@@ -216,7 +217,7 @@ def monopolar_fixed_point(
         # print(f"{M=} , {θ=}")
 
         theta_frac = __extract_frac_part_from_theta(θ)
-        hologram = __target(theta_frac)
+        hologram += __target(theta_frac)
     _print_probabilities_unique_value(hologram, "hologram", "hologram.csv")
     return hologram
 
@@ -256,6 +257,7 @@ def main():
     points = create_single_point(constants)
     # points = create_four_points(constants)
     # points = create_rectangle_points(constants)
+    # points = create_sin_wave(constants, debug=False)
     hologram_raw = None
 
     hologram_raw = monopolar_fixed_point(points, constants, BINARY)
@@ -284,6 +286,9 @@ if __name__ == "__main__":
     main()
 
 # TODO - 物体点数を1,4,四角と増やす -> ok
-# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる
+# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる -> wip
 #   1点の時5*5, 4点と四角の時6*6
+# TODO - bunnyなど3次元点群を入力する
+#   pointcloud.py
+#   monoq.py 両方で確かめる
 # TODO - ランダムの画質を確認する
