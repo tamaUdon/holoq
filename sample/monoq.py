@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 import tqdm
 from constants import ClassicalConstants
-from monopolar import monopolar_numpy
 from pointcloud import (
     create_four_points,
     create_rectangle_points,
@@ -23,7 +22,7 @@ from pointcloud import (
 
 ### === Settings === ###
 # デバッグモードフラグ
-DEBUG = True
+DEBUG = False
 # 2進数モードフラグ
 BINARY = True
 # ターゲットビット
@@ -201,10 +200,12 @@ def monopolar_fixed_point(
 
 
     if DEBUG:
-        ### float実装版, 比較用 
+        """ 
+        ## float実装版, 比較用  monopolar.monopolar_numpy() より
         # WARNING - うまく表示されてない (6*6のzoneplate) 
         #           np.cos()を用いたmonopolarの場合は問題ない
         # TODO - pp, d, λのかけ方を確認する
+        """ 
         x = np.arange(constants.X, dtype=np.float64) * constants.pp
         y = np.arange(constants.Y, dtype=np.float64) * constants.pp
         xx, yy = np.meshgrid(x, y)
@@ -229,9 +230,9 @@ def monopolar_fixed_point(
         hologram = np.zeros((constants.Y, constants.X), dtype=np.int64)
 
         p_sq = 2 * np.pi * constants.pp * constants.pp
-        p_denom = constants.λ * constants.d
+        p_denom = constants.λ #* constants.d
         N = p_sq / p_denom  # noqa: N806
-        print(f"{p_sq=}, {p_denom=}, {N=}")
+        # print(f"{p_sq=}, {p_denom=}, {N=}")
 
         for xj, yj, zj in tqdm.tqdm(points):
             xhj = xh.astype(np.int32) - xj 
