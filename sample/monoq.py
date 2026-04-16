@@ -224,10 +224,10 @@ def monopolar_fixed_point(
 
     else:
         ### 固定小数実装版
-        x = np.arange(constants.X, dtype=np.int64) 
-        y = np.arange(constants.Y, dtype=np.int64) 
+        x = np.arange(constants.X, dtype=np.int32) 
+        y = np.arange(constants.Y, dtype=np.int32) 
         xh, yh = np.meshgrid(x, y)
-        hologram = np.zeros((constants.Y, constants.X), dtype=np.int64)
+        hologram = np.zeros((constants.Y, constants.X), dtype=np.int32)
 
         p_sq = 2 * np.pi * constants.pp * constants.pp
         p_denom = constants.λ #* constants.d
@@ -246,6 +246,7 @@ def monopolar_fixed_point(
     
             theta_frac = __extract_frac_part_from_theta(θ)
             hologram += __target(theta_frac)
+        # TODO - ここでランダムをかける
 
     return hologram
 
@@ -287,24 +288,28 @@ def main():
     start = time.time()
 
     constants = ClassicalConstants()
-    points = create_single_point(constants)
+    # points = create_single_point(constants)
     # points = create_four_points(constants)
     # points = create_rectangle_points(constants)
-    # points = create_sin_wave(constants, debug=False)
+    points = create_sin_wave(constants, debug=False)
     hologram_raw = None
 
     # hologram_raw = monopolar(points, constants)
     # show(hologram_raw,constants.X,constants.Y,binary=False,save=False)
     
     hologram_raw = monopolar_fixed_point(points, constants, BINARY)
-    _print_probabilities_unique_value(hologram_raw, "hologram", "hologram.csv")
+    _print_probabilities_unique_value(
+        hologram_raw, 
+        name=f"hologram_t{TARGET}", 
+        dir=STATS_DIR,
+        save=True,)
     ratio_of_one = measure(N=constants.X * constants.Y, hologram=hologram_raw)
     hologram_rand = random_hologram(
         ratio_of_one=ratio_of_one, hologram=hologram_raw, constants=constants
     )
 
     end = time.time()
-    print(f"【{DEBUG=}】")
+    print(f"【{DEBUG=} 】")
     print(print("Cal time:{} sec".format(end - start)))
     print("CGH Calculation completed!")
 
@@ -324,9 +329,15 @@ if __name__ == "__main__":
     main()
 
 # TODO - 物体点数を1,4,四角と増やす -> ok
-# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる -> wip
-#   1点の時5*5, 4点と四角の時6*6
+# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる -> ok
+#   1点の時5*5, 4点と四角の時6*6 -> 修正済み -> ok
+# TODO - 再度  物体点数を1,4,四角と増やす -> ok
+# TODO - count_one, ratio_of_one がおかしいので修正する
 # TODO - bunnyなど3次元点群を入力する
 #   pointcloud.py
 #   monoq.py 両方で確かめる
+# TODO - 1にする部分は1回だけにする -> ok, 
+# TODO - ランダムをかけるとあまり重要でない部分がのこっている？改善できないか
+#   ホログラムにするとき、重要度の高い部分がありそう
+# TODO - ランダムの関数を確認する (1のときのみに絞っていないかなど)
 # TODO - ランダムの画質を確認する
