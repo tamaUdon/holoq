@@ -125,7 +125,7 @@ def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
     return binary_frac
 
 
-def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
+def _target_decimal(decimal_arr: np.ndarray, idx: int) -> np.ndarray:
     """
     関数T(・)の実装
     - Decimal型の小数部を受け取る
@@ -151,14 +151,14 @@ def _target_decimal(decimal_arr: np.ndarray) -> np.ndarray:
 
     _print_probabilities_unique_value(
         decimal_t_array,
-        name="decimal_t_array",  # TODO - 引数かconstantsから受け取る
+        name=f"decimal_t_array_p{idx}",  # TODO - 引数かconstantsから受け取る
         dir=STATS_DIR,
         save=True,
     )
     return decimal_choice
 
 
-def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
+def _target_binary(theta_frac: np.ndarray, idx: int) -> np.ndarray:
     """
     関数T(・)の実装
     - binaryにしたθの小数部を受け取る (big endian)
@@ -174,7 +174,7 @@ def _target_binary(theta_frac: np.ndarray) -> np.ndarray:
 
     _print_probabilities_unique_value(
         binary_choice,
-        name=f"binary_choice_t{TARGET}",
+        name=f"binary_choice_t{TARGET}_p{idx}",
         dir=STATS_DIR,
         save=True,
     )
@@ -209,7 +209,7 @@ def monopolar_fixed_point(
         x = np.arange(constants.X, dtype=np.float64) * constants.pp
         y = np.arange(constants.Y, dtype=np.float64) * constants.pp
         xx, yy = np.meshgrid(x, y)
-        hologram = np.zeros((constants.Y, constants.X), dtype=np.float64)
+        holograms = np.zeros((constants.Y, constants.X), dtype=np.float64)
 
         for xj, yj, zj in tqdm.tqdm(points):
             hx = xx - xj * constants.pp
@@ -218,23 +218,23 @@ def monopolar_fixed_point(
             phase = rho * (hx * hx + hy * hy + zj * zj)
 
             theta_frac = __extract_frac_part_from_theta(phase)
-            hologram += __target(theta_frac)
+            holograms += __target(theta_frac)
 
-        print(f"{hologram=}")
+        print(f"{holograms=}")
 
     else:
         ### 固定小数実装版
         x = np.arange(constants.X, dtype=np.int32) 
         y = np.arange(constants.Y, dtype=np.int32) 
         xh, yh = np.meshgrid(x, y)
-        hologram = np.zeros((constants.Y, constants.X), dtype=np.int32)
+        holograms = []
 
         p_sq = 2 * np.pi * constants.pp * constants.pp
         p_denom = constants.λ #* constants.d
         N = p_sq / p_denom  # noqa: N806
         # print(f"{p_sq=}, {p_denom=}, {N=}")
 
-        for xj, yj, zj in tqdm.tqdm(points):
+        for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
             xhj = xh.astype(np.int32) - xj 
             yhj = yh.astype(np.int32) - yj
             x_sq = xhj * xhj
@@ -245,10 +245,16 @@ def monopolar_fixed_point(
             θ = M * N
     
             theta_frac = __extract_frac_part_from_theta(θ)
-            hologram += __target(theta_frac)
-        # TODO - ここでランダムをかける
+            t = __target(theta_frac, idx=idx)
+            ratio_of_one = measure(N=constants.X * constants.Y, \
+                                   hologram=t)
+            hologram_rand = random_hologram(
+                ratio_of_one=ratio_of_one, hologram=t, \
+                    constants=constants, idx=idx
+            )
+            holograms.append(hologram_rand)
 
-    return hologram
+    return holograms
 
 
 def measure(N: int, hologram: np.ndarray) -> Fraction:  # noqa: N803
@@ -266,6 +272,7 @@ def random_hologram(
     ratio_of_one: Fraction,
     hologram: np.ndarray,
     constants: ClassicalConstants,
+    idx:int
 ) -> np.ndarray:
     """
     measureの結果を元にホログラムのピクセルを1か0にフィルターする
@@ -274,13 +281,21 @@ def random_hologram(
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
     bool_filter = random_filter <= float(ratio_of_one)
+    hologram_rand = bool_filter & hologram.astype(np.int64)
 
     if DEBUG:
         print(f"{type(bool_filter)=}")
         print(f"{type(hologram)=}")
         print(f"{bool_filter=}")
 
-    return bool_filter & hologram.astype(np.int64)
+    _print_probabilities_unique_value(
+            hologram_rand, 
+            name=f"hologram_rand{TARGET}_p{idx}", 
+            dir=STATS_DIR,
+            save=True
+        )
+
+    return hologram_rand
 
 
 ### ====== Handler ====== ###
@@ -288,25 +303,10 @@ def main():
     start = time.time()
 
     constants = ClassicalConstants()
-    # points = create_single_point(constants)
+    points = create_single_point(constants)
     # points = create_four_points(constants)
     # points = create_rectangle_points(constants)
-    points = create_sin_wave(constants, debug=False)
-    hologram_raw = None
-
-    # hologram_raw = monopolar(points, constants)
-    # show(hologram_raw,constants.X,constants.Y,binary=False,save=False)
-    
-    hologram_raw = monopolar_fixed_point(points, constants, BINARY)
-    _print_probabilities_unique_value(
-        hologram_raw, 
-        name=f"hologram_t{TARGET}", 
-        dir=STATS_DIR,
-        save=True,)
-    ratio_of_one = measure(N=constants.X * constants.Y, hologram=hologram_raw)
-    hologram_rand = random_hologram(
-        ratio_of_one=ratio_of_one, hologram=hologram_raw, constants=constants
-    )
+    holograms = monopolar_fixed_point(points, constants, BINARY)
 
     end = time.time()
     print(f"【{DEBUG=} 】")
@@ -315,7 +315,7 @@ def main():
 
     print("Preparing for display...")
     show(
-        [hologram_raw, hologram_rand],
+        holograms,
         constants.X,
         constants.Y,
         BINARY,
@@ -331,13 +331,13 @@ if __name__ == "__main__":
 # TODO - 物体点数を1,4,四角と増やす -> ok
 # TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる -> ok
 #   1点の時5*5, 4点と四角の時6*6 -> 修正済み -> ok
-# TODO - 再度  物体点数を1,4,四角と増やす -> ok
-# TODO - count_one, ratio_of_one がおかしいので修正する
+# TODO - 再度  物体点数を1,4,四角と増やす -> ok. rectangleは表示点数が多すぎてshow()できなかった
+# TODO - count_one, ratio_of_one がおかしいので修正する -> ok
 # TODO - bunnyなど3次元点群を入力する
 #   pointcloud.py
 #   monoq.py 両方で確かめる
-# TODO - 1にする部分は1回だけにする -> ok, 
-# TODO - ランダムをかけるとあまり重要でない部分がのこっている？改善できないか
-#   ホログラムにするとき、重要度の高い部分がありそう
-# TODO - ランダムの関数を確認する (1のときのみに絞っていないかなど)
+# TODO - 1にする部分は1回だけにする -> ok,
+# TODO - decimal と binary を比較する -> ok
+# TODO - 1点と4点の場合を比較する
+# TODO - 足し合わせの部分をつくる
 # TODO - ランダムの画質を確認する
