@@ -227,6 +227,7 @@ def monopolar_fixed_point(
         y = np.arange(constants.Y, dtype=np.int32)
         xh, yh = np.meshgrid(x, y)
         holograms = []
+        ratio_after_measure = Fraction()
 
         p_sq = np.pi * constants.pp * constants.pp
         p_denom = constants.λ
@@ -244,9 +245,11 @@ def monopolar_fixed_point(
 
             theta_frac = __extract_frac_part_from_theta(θ)
             t = __target(theta_frac, idx=idx)
-            ratio_of_one = measure(N=len(points), hologram=t)
+            ratio_of_one, ratio_after_measure = measure(
+                N=len(points), hologram=t
+            )
             hologram_rand = random_hologram(
-                ratio_of_one=ratio_of_one,
+                ratio=ratio_of_one,
                 hologram=t,
                 constants=constants,
                 idx=idx,
@@ -256,22 +259,28 @@ def monopolar_fixed_point(
     return holograms
 
 
-def measure(N: int, hologram: np.ndarray) -> Fraction:  # noqa: N803
+def measure(N: int, hologram: np.ndarray) -> tuple[Fraction, float]:  # noqa: N803
     """
     1をカウントし、ホログラム内の1の割合を返却する
     """
     count_one = np.count_nonzero(hologram)
-    ratio_of_one = Fraction(count_one.item(), N)
+    ratio_of_one = Fraction(
+        count_one.item(), N
+    )  # Q - 物体点が1の時、/1となる？ 重ね合わせ状態の定義を確認する?
+    sqrt_ratio_of_one = np.sqrt(count_one.item()) / np.sqrt(N)
+    ratio_after_measure = (
+        1 / np.sqrt(N)
+    ) / sqrt_ratio_of_one  # TODO - 正しい式と結果かを確認する
 
     # TODO - 物体点が複数個ある場合、測定後の確率計算を入れる
 
-    print(f"{count_one=}, {ratio_of_one=}")
+    print(f"{count_one=}, {ratio_of_one=}, {ratio_after_measure=}")
 
-    return ratio_of_one
+    return ratio_of_one, ratio_after_measure
 
 
 def random_hologram(
-    ratio_of_one: Fraction,
+    ratio: Fraction,
     hologram: np.ndarray,
     constants: ClassicalConstants,
     idx: int,
@@ -282,8 +291,11 @@ def random_hologram(
 
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
-    bool_filter = random_filter <= float(ratio_of_one)
+    bool_filter = random_filter <= float(ratio)
     hologram_rand = bool_filter & hologram.astype(np.int64)
+
+    print(f"{ratio=}")
+    # print(f"{bool_filter=}")
 
     _print_probabilities_unique_value(
         hologram_rand,
