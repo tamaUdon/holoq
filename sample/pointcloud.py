@@ -58,6 +58,31 @@ def create_small_opening(
     return points
 
 
+def create_circle(constants: ClassicalConstants) -> np.ndarray:
+    """
+    create_circle 円形の点群を作成する関数
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: ClassicalConstants
+    :return: 円形の点群
+    :rtype: np.ndarray
+    """
+
+    x = np.arange(constants.X, dtype=np.float64)
+    y = np.arange(constants.Y, dtype=np.float64)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+
+    cx = (constants.X - 1) / 2.0
+    cy = (constants.Y - 1) / 2.0
+    radius_sq = (constants.X * constants.Y) / (2.0 * np.pi)
+
+    mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= radius_sq
+    points_xy = np.column_stack((xx[mask], yy[mask]))
+    z = np.full((points_xy.shape[0], 1), constants.d, dtype=np.float64)
+
+    return np.hstack((points_xy, z))
+
+
 def create_four_points(constants: ClassicalConstants) -> np.ndarray:
     """
     create_rect_points 4点の点群を作成する関数

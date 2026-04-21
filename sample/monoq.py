@@ -17,6 +17,7 @@ from pointcloud import (
     create_rectangle_points,
     create_sin_wave,
     create_single_point,
+    create_circle,
     show,
 )
 
@@ -28,7 +29,7 @@ BINARY = True
 # ターゲットビット
 TARGET = 0
 # 物体点
-N = "wave"  # "1", "4", "rectangle", "wave"
+N = "4"  # "1", "4", "rectangle", "wave", "circle"
 # 統計情報の保存先ディレクトリ
 STATS_DIR = "results/stats/exp"
 # 画像の保存先ディレクトリ
@@ -165,8 +166,6 @@ def _target_binary(theta_frac: np.ndarray, idx: int) -> np.ndarray:
     - binaryにしたθの小数部を受け取る (big endian)
     - 任意の桁を取り出し、0 or 1の配列をつくって返却する
     """
-    print(theta_frac.shape)
-
     # [:,0]...1文字目を取り出す (big endian最上位の桁)
     binary_choice = theta_frac[:, :, TARGET]  # 全ての行の各列1文字目を抽出
     _print_probabilities_unique_value(
@@ -249,8 +248,6 @@ def monopolar_fixed_point(
 
 def sum_holograms(holograms: np.ndarray, n: int) -> np.ndarray:
     holo_sum = holograms.sum(axis=0)
-    # print(f"holo_sum_axis_0_{holo_sum=}")
-    print(f"物体点数_{n=}")
     holo_ratio = holo_sum / n  # 物体点数
     print(f"/nした確率{holo_ratio=}")
     return holo_ratio
@@ -267,7 +264,6 @@ def random_hologram(
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
     bool_filter = random_filter <= holo_ratio
-    # hologram_rand = bool_filter & holo_ratio.astype(np.int64)
 
     _print_probabilities_unique_value(
         bool_filter,
@@ -293,11 +289,13 @@ def main():
         points = create_rectangle_points(constants)
     elif N == "wave":
         points = create_sin_wave(constants)
+    elif N == "circle":
+        points = create_circle(constants)
     else:
         raise NotImplementedError
 
     holograms = monopolar_fixed_point(points, constants, BINARY)
-    holo_ratio = sum_holograms(holograms, len(points))
+    holo_ratio = sum_holograms(holograms, len(points))  # /物体点
     hologram_rand = random_hologram(
         holo_ratio=holo_ratio, constants=constants
     )
@@ -322,15 +320,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# TODO - 物体点数を1,4,四角と増やす -> ok
-# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる -> ok
-#   1点の時5*5, 4点と四角の時6*6 -> 修正済み -> ok
-# TODO - 再度  物体点数を1,4,四角と増やす -> ok. rectangleは表示点数が多すぎてshow()できなかった
-# TODO - count_one, ratio_of_one がおかしいので修正する -> ok
+
+# TODO - 奥行き方向に密（x,yが同じところに奥行き違いの点がある）な点群を作成する
+# TODO - 奥行き方向に密な点群の、1000点の場合の画像を出す, マシンパワーが不足する場合はBrains
 # TODO - bunnyなど3次元点群を入力する
-#   pointcloud.py
-#   monoq.py 両方で確かめる
-# TODO - 1にする部分は1回だけにする -> ok,
-# TODO - decimal と binary を比較する -> ok
-# TODO - 1点と4点の場合を比較する
-# TODO - 物体点が複数個ある場合、足し合わせを実装する
