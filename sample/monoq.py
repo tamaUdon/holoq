@@ -17,6 +17,7 @@ from pointcloud import (
     create_rectangle_points,
     create_sin_wave,
     create_single_point,
+    create_circle,
     show,
 )
 
@@ -27,6 +28,8 @@ DEBUG = False
 BINARY = True
 # ターゲットビット
 TARGET = 0
+# 物体点
+N = "4"  # "1", "4", "rectangle", "wave", "circle"
 # 統計情報の保存先ディレクトリ
 STATS_DIR = "results/stats/exp"
 # 画像の保存先ディレクトリ
@@ -112,7 +115,6 @@ def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
 
     return: 小数部<Decimal>
     """
-
     frac_part, int_part = np.modf(θ)  # 例) 1.5 -> (0.5, 1.0)
     frac_scaled = (frac_part * 255).astype(
         np.uint8  # uint8 に変換
@@ -164,8 +166,6 @@ def _target_binary(theta_frac: np.ndarray, idx: int) -> np.ndarray:
     - binaryにしたθの小数部を受け取る (big endian)
     - 任意の桁を取り出し、0 or 1の配列をつくって返却する
     """
-    print(theta_frac.shape)
-
     # [:,0]...1文字目を取り出す (big endian最上位の桁)
     binary_choice = theta_frac[:, :, TARGET]  # 全ての行の各列1文字目を抽出
     _print_probabilities_unique_value(
@@ -198,44 +198,40 @@ def monopolar_fixed_point(
         __extract_frac_part_from_theta = _extract_decimal_frac_part_from_theta
         __target = _target_decimal
 
-
     if DEBUG:
         """ 
         ## float実装版, 比較用  monopolar.monopolar_numpy() より
         # WARNING - うまく表示されてない (6*6のzoneplate) 
         #           np.cos()を用いたmonopolarの場合は問題ない
         # TODO - pp, d, λのかけ方を確認する
-        """ 
+        """
         x = np.arange(constants.X, dtype=np.float64) * constants.pp
         y = np.arange(constants.Y, dtype=np.float64) * constants.pp
         xx, yy = np.meshgrid(x, y)
         holograms = np.zeros((constants.Y, constants.X), dtype=np.float64)
 
-        for xj, yj, zj in tqdm.tqdm(points):
+        for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
             hx = xx - xj * constants.pp
             hy = yy - yj * constants.pp
             rho = constants.k / zj
             phase = rho * (hx * hx + hy * hy + zj * zj)
 
             theta_frac = __extract_frac_part_from_theta(phase)
-            holograms += __target(theta_frac)
-
-        print(f"{holograms=}")
+            holograms += __target(theta_frac, idx)
 
     else:
         ### 固定小数実装版
-        x = np.arange(constants.X, dtype=np.int32) 
-        y = np.arange(constants.Y, dtype=np.int32) 
+        x = np.arange(constants.X, dtype=np.int32)
+        y = np.arange(constants.Y, dtype=np.int32)
         xh, yh = np.meshgrid(x, y)
         holograms = []
 
-        p_sq = 2 * np.pi * constants.pp * constants.pp
-        p_denom = constants.λ #* constants.d
+        p_sq = np.pi * constants.pp * constants.pp
+        p_denom = constants.λ
         N = p_sq / p_denom  # noqa: N806
-        # print(f"{p_sq=}, {p_denom=}, {N=}")
 
         for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
-            xhj = xh.astype(np.int32) - xj 
+            xhj = xh.astype(np.int32) - xj
             yhj = yh.astype(np.int32) - yj
             x_sq = xhj * xhj
             y_sq = yhj * yhj
@@ -243,36 +239,23 @@ def monopolar_fixed_point(
 
             M = x_sq + y_sq + z_sq  # M-bit # noqa: N806
             θ = M * N
-    
+
             theta_frac = __extract_frac_part_from_theta(θ)
-            t = __target(theta_frac, idx=idx)
-            ratio_of_one = measure(N=constants.X * constants.Y, \
-                                   hologram=t)
-            hologram_rand = random_hologram(
-                ratio_of_one=ratio_of_one, hologram=t, \
-                    constants=constants, idx=idx
-            )
-            holograms.append(hologram_rand)
+            holograms.append(__target(theta_frac, idx=idx))
 
-    return holograms
+    return np.array(holograms)
 
 
-def measure(N: int, hologram: np.ndarray) -> Fraction:  # noqa: N803
-    """
-    1をカウントし、ホログラム内の1の割合を返却する
-    """
-    count_one = np.count_nonzero(hologram)
-    ratio_of_one = Fraction(count_one.item(), N)
-    print(f"{count_one=}, {ratio_of_one=}")
-
-    return ratio_of_one
+def sum_holograms(holograms: np.ndarray, n: int) -> np.ndarray:
+    holo_sum = holograms.sum(axis=0)
+    holo_ratio = holo_sum / n  # 物体点数
+    print(f"/nした確率{holo_ratio=}")
+    return holo_ratio
 
 
 def random_hologram(
-    ratio_of_one: Fraction,
-    hologram: np.ndarray,
+    holo_ratio: np.ndarray,
     constants: ClassicalConstants,
-    idx:int
 ) -> np.ndarray:
     """
     measureの結果を元にホログラムのピクセルを1か0にフィルターする
@@ -280,22 +263,16 @@ def random_hologram(
 
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
-    bool_filter = random_filter <= float(ratio_of_one)
-    hologram_rand = bool_filter & hologram.astype(np.int64)
-
-    if DEBUG:
-        print(f"{type(bool_filter)=}")
-        print(f"{type(hologram)=}")
-        print(f"{bool_filter=}")
+    bool_filter = random_filter <= holo_ratio
 
     _print_probabilities_unique_value(
-            hologram_rand, 
-            name=f"hologram_rand{TARGET}_p{idx}", 
-            dir=STATS_DIR,
-            save=True
-        )
+        bool_filter,
+        name=f"hologram_rand{TARGET}",
+        dir=STATS_DIR,
+        save=True,
+    )
 
-    return hologram_rand
+    return bool_filter
 
 
 ### ====== Handler ====== ###
@@ -303,10 +280,25 @@ def main():
     start = time.time()
 
     constants = ClassicalConstants()
-    points = create_single_point(constants)
-    # points = create_four_points(constants)
-    # points = create_rectangle_points(constants)
+
+    if N == "1":
+        points = create_single_point(constants)
+    elif N == "4":
+        points = create_four_points(constants)
+    elif N == "rectangle":
+        points = create_rectangle_points(constants)
+    elif N == "wave":
+        points = create_sin_wave(constants)
+    elif N == "circle":
+        points = create_circle(constants)
+    else:
+        raise NotImplementedError
+
     holograms = monopolar_fixed_point(points, constants, BINARY)
+    holo_ratio = sum_holograms(holograms, len(points))  # /物体点
+    hologram_rand = random_hologram(
+        holo_ratio=holo_ratio, constants=constants
+    )
 
     end = time.time()
     print(f"【{DEBUG=} 】")
@@ -315,7 +307,7 @@ def main():
 
     print("Preparing for display...")
     show(
-        holograms,
+        hologram_rand,
         constants.X,
         constants.Y,
         BINARY,
@@ -328,16 +320,8 @@ def main():
 if __name__ == "__main__":
     main()
 
-# TODO - 物体点数を1,4,四角と増やす -> ok
-# TODO - ホログラムの出力が正しいか？ゾーンプレートらしい点が多すぎる -> ok
-#   1点の時5*5, 4点と四角の時6*6 -> 修正済み -> ok
-# TODO - 再度  物体点数を1,4,四角と増やす -> ok. rectangleは表示点数が多すぎてshow()できなかった
-# TODO - count_one, ratio_of_one がおかしいので修正する -> ok
+
+# TODO - 奥行き方向に密（x,yが同じところに奥行き違いの点がある）な点群を作成する
+# TODO - 奥行き方向に密な点群の、1000点の場合の画像を出す, マシンパワーが不足する場合はBrains
 # TODO - bunnyなど3次元点群を入力する
-#   pointcloud.py
-#   monoq.py 両方で確かめる
-# TODO - 1にする部分は1回だけにする -> ok,
-# TODO - decimal と binary を比較する -> ok
-# TODO - 1点と4点の場合を比較する
-# TODO - 足し合わせの部分をつくる
-# TODO - ランダムの画質を確認する
+# TODO - FFT-1でホログラムを再構成する (実際に動くか確認する)
