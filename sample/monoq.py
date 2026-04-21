@@ -27,6 +27,8 @@ DEBUG = False
 BINARY = True
 # ターゲットビット
 TARGET = 0
+# 物体点
+N = "wave"  # "1", "4", "rectangle", "wave"
 # 統計情報の保存先ディレクトリ
 STATS_DIR = "results/stats/exp"
 # 画像の保存先ディレクトリ
@@ -112,7 +114,6 @@ def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
 
     return: 小数部<Decimal>
     """
-
     frac_part, int_part = np.modf(θ)  # 例) 1.5 -> (0.5, 1.0)
     frac_scaled = (frac_part * 255).astype(
         np.uint8  # uint8 に変換
@@ -219,15 +220,12 @@ def monopolar_fixed_point(
             theta_frac = __extract_frac_part_from_theta(phase)
             holograms += __target(theta_frac, idx)
 
-        print(f"{holograms=}")
-
     else:
         ### 固定小数実装版
         x = np.arange(constants.X, dtype=np.int32)
         y = np.arange(constants.Y, dtype=np.int32)
         xh, yh = np.meshgrid(x, y)
         holograms = []
-        ratio_after_measure = Fraction()
 
         p_sq = np.pi * constants.pp * constants.pp
         p_denom = constants.λ
@@ -244,46 +242,23 @@ def monopolar_fixed_point(
             θ = M * N
 
             theta_frac = __extract_frac_part_from_theta(θ)
-            t = __target(theta_frac, idx=idx)
-            ratio_of_one, ratio_after_measure = measure(
-                N=len(points), hologram=t
-            )
-            hologram_rand = random_hologram(
-                ratio=ratio_of_one,
-                hologram=t,
-                constants=constants,
-                idx=idx,
-            )
-            holograms.append(hologram_rand)
+            holograms.append(__target(theta_frac, idx=idx))
 
-    return holograms
+    return np.array(holograms)
 
 
-def measure(N: int, hologram: np.ndarray) -> tuple[Fraction, float]:  # noqa: N803
-    """
-    1をカウントし、ホログラム内の1の割合を返却する
-    """
-    count_one = np.count_nonzero(hologram)
-    ratio_of_one = Fraction(
-        count_one.item(), N
-    )  # Q - 物体点が1の時、/1となる？ 重ね合わせ状態の定義を確認する?
-    sqrt_ratio_of_one = np.sqrt(count_one.item()) / np.sqrt(N)
-    ratio_after_measure = (
-        1 / np.sqrt(N)
-    ) / sqrt_ratio_of_one  # TODO - 正しい式と結果かを確認する
-
-    # TODO - 物体点が複数個ある場合、測定後の確率計算を入れる
-
-    print(f"{count_one=}, {ratio_of_one=}, {ratio_after_measure=}")
-
-    return ratio_of_one, ratio_after_measure
+def sum_holograms(holograms: np.ndarray, n: int) -> np.ndarray:
+    holo_sum = holograms.sum(axis=0)
+    # print(f"holo_sum_axis_0_{holo_sum=}")
+    print(f"物体点数_{n=}")
+    holo_ratio = holo_sum / n  # 物体点数
+    print(f"/nした確率{holo_ratio=}")
+    return holo_ratio
 
 
 def random_hologram(
-    ratio: Fraction,
-    hologram: np.ndarray,
+    holo_ratio: np.ndarray,
     constants: ClassicalConstants,
-    idx: int,
 ) -> np.ndarray:
     """
     measureの結果を元にホログラムのピクセルを1か0にフィルターする
@@ -291,20 +266,17 @@ def random_hologram(
 
     rng = np.random.default_rng()
     random_filter = rng.random((constants.X, constants.Y))
-    bool_filter = random_filter <= float(ratio)
-    hologram_rand = bool_filter & hologram.astype(np.int64)
-
-    print(f"{ratio=}")
-    # print(f"{bool_filter=}")
+    bool_filter = random_filter <= holo_ratio
+    # hologram_rand = bool_filter & holo_ratio.astype(np.int64)
 
     _print_probabilities_unique_value(
-        hologram_rand,
-        name=f"hologram_rand{TARGET}_p{idx}",
+        bool_filter,
+        name=f"hologram_rand{TARGET}",
         dir=STATS_DIR,
         save=True,
     )
 
-    return hologram_rand
+    return bool_filter
 
 
 ### ====== Handler ====== ###
@@ -312,10 +284,23 @@ def main():
     start = time.time()
 
     constants = ClassicalConstants()
-    points = create_single_point(constants)
-    # points = create_four_points(constants)
-    # points = create_rectangle_points(constants)
+
+    if N == "1":
+        points = create_single_point(constants)
+    elif N == "4":
+        points = create_four_points(constants)
+    elif N == "rectangle":
+        points = create_rectangle_points(constants)
+    elif N == "wave":
+        points = create_sin_wave(constants)
+    else:
+        raise NotImplementedError
+
     holograms = monopolar_fixed_point(points, constants, BINARY)
+    holo_ratio = sum_holograms(holograms, len(points))
+    hologram_rand = random_hologram(
+        holo_ratio=holo_ratio, constants=constants
+    )
 
     end = time.time()
     print(f"【{DEBUG=} 】")
@@ -324,7 +309,7 @@ def main():
 
     print("Preparing for display...")
     show(
-        holograms,
+        hologram_rand,
         constants.X,
         constants.Y,
         BINARY,
@@ -348,5 +333,4 @@ if __name__ == "__main__":
 # TODO - 1にする部分は1回だけにする -> ok,
 # TODO - decimal と binary を比較する -> ok
 # TODO - 1点と4点の場合を比較する
-# TODO - 物体点が複数個ある場合、測定後の確率計算を入れる
-# TODO - ランダムの画質を確認する
+# TODO - 物体点が複数個ある場合、足し合わせを実装する
