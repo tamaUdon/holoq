@@ -171,13 +171,6 @@ def _target_binary(theta_frac: np.ndarray, idx: int) -> np.ndarray:
     _print_probabilities_unique_value(
         theta_frac[:, :, TARGET], name=f"theta_frac[:, :, {TARGET}]"
     )
-
-    _print_probabilities_unique_value(
-        binary_choice,
-        name=f"binary_choice_t{TARGET}_p{idx}",
-        dir=STATS_DIR,
-        save=True,
-    )
     return binary_choice
 
 
