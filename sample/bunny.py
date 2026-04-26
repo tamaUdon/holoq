@@ -10,7 +10,7 @@ import open3d as o3d
 import open3d.data
 import tqdm
 from constants import ClassicalConstants
-from monoq import monopolar_fixed_point
+from monoq import monopolar_fixed_point, random_hologram, sum_holograms
 from pointcloud import generate_hologram, show
 from reconst_hologram import fresnel_fft
 
@@ -45,14 +45,18 @@ def main():
     point_cloud = load_bunny_pointcloud()
     print("Loading data completed!")
 
-    point_cloud = downsampling(point_cloud, every_k_points=10)
+    point_cloud = downsampling(point_cloud, every_k_points=10000)
     print("Downsampling completed!")
 
     points = np.asarray(point_cloud.points)
     # hologram = generate_hologram(points, constants)
     hologram = monopolar_fixed_point(points, constants, binary=True)
+    holo_ratio = sum_holograms(hologram, len(points))  # /物体点
+    hologram_rand = random_hologram(
+        holo_ratio=holo_ratio, constants=constants
+    )
     # 再構成して出力を見る
-    reconst = fresnel_fft(hologram.astype(np.complex128), constants)
+    reconst = fresnel_fft(hologram_rand.astype(np.complex128), constants)
     print("CGH Calculation completed!")
 
     end = time.time()
@@ -60,7 +64,7 @@ def main():
 
     print("Preparing for display...")
     show(
-        [hologram, reconst],
+        [hologram_rand, reconst],
         x=constants.X,
         y=constants.Y,
         binary=True,
