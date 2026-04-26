@@ -4,14 +4,14 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-from constants import Constants
+from constants import ClassicalConstants
 from pointcloud import (
     create_rectangle_points,
     generate_hologram,
 )
 
 
-def response(constants: Constants):
+def response(constants: ClassicalConstants):
     size_x = constants.X * 2
     size_y = constants.Y * 2
     x = (np.arange(size_x, dtype=np.float64) - size_x / 2) * constants.pp
@@ -25,7 +25,7 @@ def response(constants: Constants):
 
 def fresnel_fft(
     points: np.ndarray,
-    constants: Constants,
+    constants: ClassicalConstants,
 ) -> np.ndarray:
     # ゼロパディングありの画像 * FFT --> 出力: F[a]
     # インパルス応答 * FFT --> 出力: F[b]
@@ -57,7 +57,7 @@ def show_twin(hologram: np.ndarray, recon: np.ndarray) -> None:
 def main() -> None:
     start = time.time()
 
-    constants = Constants()
+    constants = ClassicalConstants()
     points = create_rectangle_points(constants)
     hologram = generate_hologram(points, constants)
     recon = fresnel_fft(hologram.astype(np.complex128), constants)
