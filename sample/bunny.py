@@ -8,7 +8,7 @@ import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 from pointcloud import generate_hologram
-from constants import Constants
+from constants import ClassicalConstants
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -24,23 +24,34 @@ def downsampling(
     return points
 
 
-def show(holography: np.ndarray) -> None:
+def save(
+    holography: np.ndarray, constants: ClassicalConstants, fname: str
+) -> None:
     fig, ax = plt.subplots()
-    color = ax.contourf(range(Constants.X), range(Constants.Y), holography)
+    color = ax.contourf(range(constants.X), range(constants.Y), holography)
     fig.colorbar(color)
     fig.set_label("holography")
-    plt.legend()
-    plt.show()
+    fig.savefig(fname=fname)
+
+
+def save_point_cloud(point_cloud: np.ndarray, fname: str):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(point_cloud[:, 0], point_cloud[:, 1], point_cloud[:, 2], s=1)
+    fig.set_label("3d point cloud")
+    fig.savefig(fname=fname)
 
 
 def main():
     start = time.time()
-    constants = Constants()
+    constants = ClassicalConstants()
 
     point_cloud = load_bunny_pointcloud()
     print("Loading data completed!")
 
-    point_cloud = downsampling(point_cloud, every_k_points=1000)
+    point_cloud = downsampling(point_cloud, every_k_points=10)
+    point_array = np.asarray(point_cloud.points)
+    save_point_cloud(point_array, "results/images/3d/pc_bunny.png")
     print("Downsampling completed!")
 
     points = np.asarray(point_cloud.points)
@@ -51,7 +62,7 @@ def main():
     print(print("Cal time:{} sec".format(end - start)))
 
     print("Preparing for display...")
-    show(plate)
+    save(plate, constants, "results/images/3d/bunny.png")
 
 
 if __name__ == "__main__":
