@@ -18,7 +18,6 @@ from reconst_hologram import fresnel_fft
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
     bunny_path = open3d.data.BunnyMesh().path
     point_cloud = o3d.io.read_point_cloud(bunny_path)
-    # 90度手前に回転
     return point_cloud
 
 
@@ -29,13 +28,17 @@ def downsampling(
     return points
 
 
-# def show(holography: np.ndarray, constants: ClassicalConstants) -> None:
-#     fig, ax = plt.subplots()
-#     color = ax.contourf(range(constants.X), range(constants.Y), holography)
-#     fig.colorbar(color)
-#     fig.set_label("holography")
-#     plt.legend()
-#     plt.show()
+def show_pointcloud(points: np.ndarray) -> None:
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2], s=4)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title("Point Cloud")
+    ax.set_box_aspect(np.ptp(points, axis=0))
+    plt.tight_layout()
+    plt.show()
 
 
 def main():
@@ -45,18 +48,26 @@ def main():
     point_cloud = load_bunny_pointcloud()
     print("Loading data completed!")
 
-    point_cloud = downsampling(point_cloud, every_k_points=10000)
+    point_cloud = downsampling(point_cloud, every_k_points=10)
     print("Downsampling completed!")
 
     points = np.asarray(point_cloud.points)
-    # hologram = generate_hologram(points, constants)
-    hologram = monopolar_fixed_point(points, constants, binary=True)
-    holo_ratio = sum_holograms(hologram, len(points))  # /物体点
-    hologram_rand = random_hologram(
-        holo_ratio=holo_ratio, constants=constants
-    )
-    # 再構成して出力を見る
-    reconst = fresnel_fft(hologram_rand.astype(np.complex128), constants)
+    show_pointcloud(points)
+    hologram = generate_hologram(points, constants)
+    reconst = fresnel_fft(hologram.astype(np.complex128), constants)
+
+    # # monopolarホログラム
+    # hologram = monopolar_fixed_point(points, constants, binary=True)
+    # holo_ratio = sum_holograms(hologram, len(points))  # /物体点
+
+    # # QGHに適用 (random)
+    # hologram_rand = random_hologram(
+    #     holo_ratio=holo_ratio, constants=constants
+    # )
+
+    # # 再構成して出力を見る
+    # reconst = fresnel_fft(hologram_rand.astype(np.complex128), constants)
+    # reconst_intensity = np.abs(reconst) ** 2
     print("CGH Calculation completed!")
 
     end = time.time()
@@ -64,7 +75,8 @@ def main():
 
     print("Preparing for display...")
     show(
-        [hologram_rand, reconst],
+        # [holo_ratio, hologram_rand, reconst_intensity],
+        [hologram, reconst],
         x=constants.X,
         y=constants.Y,
         binary=True,
