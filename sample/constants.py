@@ -19,7 +19,7 @@ class ClassicalConstants:
     Y = X
     λ = 633e-9  # 波長[nm] e-9
     pp = 10e-6  # 画素ピッチ[μm] e-6
-    d = 180e-3  # 物体までの距離[mm] e-3 # 260
+    d = 200e-3  # 物体までの距離[mm] e-3 # 260
     bits_w = 2
 
     @property
@@ -28,8 +28,8 @@ class ClassicalConstants:
 
     @property
     def pad(self) -> int:
-        # X / 2 幅のpadding
-        return self.X // 2
+        # X幅のpaddingを追加
+        return self.X
 
 
 @dataclass

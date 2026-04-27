@@ -41,6 +41,62 @@ def show_pointcloud(points: np.ndarray) -> None:
     plt.show()
 
 
+def change_const_from_points(
+    points: np.ndarray,
+    constants: ClassicalConstants,
+    show_projection: bool = True,
+) -> np.ndarray:
+    # 3d bunny を z 軸方向から見た 2d 点群に変換する。
+    # generate_hologram() は x, y を画素座標、z を距離[m]として扱う。
+    xy = points[:, :2]
+    xy_min = xy.min(axis=0)
+    xy_size = np.ptp(xy, axis=0)
+    xy_size[xy_size == 0.0] = 1.0
+
+    scale = (
+        min(
+            (constants.X - 1) / xy_size[0],
+            (constants.Y - 1) / xy_size[1],
+        )
+        * 0.7
+    )  # X,Yいっぱいにならないように小さく
+    scaled_xy = (xy - xy_min) * scale
+    offset = np.array(
+        [
+            (constants.X - 1 - scaled_xy[:, 0].max()) / 2.0,
+            (constants.Y - 1 - scaled_xy[:, 1].max()) / 2.0,
+        ]
+    )
+    image_xy = scaled_xy + offset
+
+    points_2d = np.column_stack(
+        (
+            image_xy[:, 0],
+            image_xy[:, 1],
+            np.full(len(points), constants.d, dtype=np.float64),
+        )
+    )
+
+    if show_projection:
+        projection = np.zeros((constants.Y, constants.X), dtype=np.float64)
+        xi = np.rint(points_2d[:, 0]).astype(np.int32)
+        yi = np.rint(points_2d[:, 1]).astype(np.int32)
+        valid = (
+            (0 <= xi) & (xi < constants.X) & (0 <= yi) & (yi < constants.Y)
+        )
+        projection[yi[valid], xi[valid]] = 1.0
+
+        fig, ax = plt.subplots()
+        ax.imshow(projection, cmap="gray", origin="lower")
+        ax.set_title("Bunny Projection")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        plt.tight_layout()
+        plt.show()
+
+    return points_2d
+
+
 def main():
     start = time.time()
     constants = ClassicalConstants()
@@ -48,11 +104,12 @@ def main():
     point_cloud = load_bunny_pointcloud()
     print("Loading data completed!")
 
-    point_cloud = downsampling(point_cloud, every_k_points=10)
+    point_cloud = downsampling(point_cloud, every_k_points=1)
     print("Downsampling completed!")
 
     points = np.asarray(point_cloud.points)
     show_pointcloud(points)
+    points = change_const_from_points(points, constants)
     hologram = generate_hologram(points, constants)
     reconst = fresnel_fft(hologram.astype(np.complex128), constants)
 
@@ -87,3 +144,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO - binaryにbunnyをいれてみる
+# TODO - 3d点群対応
