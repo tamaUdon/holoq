@@ -36,7 +36,11 @@ def fresnel_fft(
     fa = np.fft.fft2(pad_points)
     fb = response(constants)
     μ = np.fft.ifft2(fa * fb)
-    return μ
+
+    if constants.pad == 0:
+        return μ
+    # ゼロパディングを除く
+    return μ[constants.pad : -constants.pad, constants.pad : -constants.pad]
 
 
 def show_twin(hologram: np.ndarray, recon: np.ndarray) -> None:
