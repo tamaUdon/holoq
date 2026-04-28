@@ -11,3 +11,5 @@ wheels/
 
 # VSCodeの設定
 .vscode/*
+
+results/*
