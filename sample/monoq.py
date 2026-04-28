@@ -53,9 +53,9 @@ def _print_probabilities_unique_value(
 
     values, counts = np.unique(array, return_counts=True)
     probabilities = counts / array.size
-    print(f"{name}の統計情報")
-    for v, c, p in zip(values, counts, probabilities):
-        print(f"要素: {v}, カウント: {c}, 確率: {p:.2f} \n")
+    # print(f"{name}の統計情報")
+    # for v, c, p in zip(values, counts, probabilities):
+    #    print(f"要素: {v}, カウント: {c}, 確率: {p:.2f} \n")
 
     if save:
         _save_probabilities(Path(dir), name, values, counts, probabilities)
@@ -151,12 +151,12 @@ def _target_decimal(decimal_arr: np.ndarray, idx: int) -> np.ndarray:
         p=[0.5, 0.5],
     )
 
-    _print_probabilities_unique_value(
-        decimal_t_array,
-        name=f"decimal_t_array_p{idx}",  # TODO - 引数かconstantsから受け取る
-        dir=STATS_DIR,
-        save=True,
-    )
+    # _print_probabilities_unique_value(
+    #     decimal_t_array,
+    #     name=f"decimal_t_array_p{idx}",  # TODO - 引数かconstantsから受け取る
+    #     dir=STATS_DIR,
+    #     save=True,
+    # )
     return decimal_choice
 
 
@@ -168,9 +168,9 @@ def _target_binary(theta_frac: np.ndarray, idx: int) -> np.ndarray:
     """
     # [:,0]...1文字目を取り出す (big endian最上位の桁)
     binary_choice = theta_frac[:, :, TARGET]  # 全ての行の各列1文字目を抽出
-    _print_probabilities_unique_value(
-        theta_frac[:, :, TARGET], name=f"theta_frac[:, :, {TARGET}]"
-    )
+    # _print_probabilities_unique_value(
+    #     theta_frac[:, :, TARGET], name=f"theta_frac[:, :, {TARGET}]"
+    # )
     return binary_choice
 
 
@@ -258,12 +258,12 @@ def random_hologram(
     random_filter = rng.random((constants.X, constants.Y))
     bool_filter = random_filter <= holo_ratio
 
-    _print_probabilities_unique_value(
-        bool_filter,
-        name=f"hologram_rand{TARGET}",
-        dir=STATS_DIR,
-        save=True,
-    )
+    # _print_probabilities_unique_value(
+    #     bool_filter,
+    #     name=f"hologram_rand{TARGET}",
+    #     dir=STATS_DIR,
+    #     save=True,
+    # )
 
     return bool_filter
 

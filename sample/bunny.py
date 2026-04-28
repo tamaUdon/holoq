@@ -104,27 +104,28 @@ def main():
     point_cloud = load_bunny_pointcloud()
     print("Loading data completed!")
 
-    point_cloud = downsampling(point_cloud, every_k_points=1)
+    point_cloud = downsampling(point_cloud, every_k_points=10)
     print("Downsampling completed!")
 
     points = np.asarray(point_cloud.points)
     show_pointcloud(points)
     points = change_const_from_points(points, constants)
-    hologram = generate_hologram(points, constants)
-    reconst = fresnel_fft(hologram.astype(np.complex128), constants)
+    # hologram = generate_hologram(points, constants)
+    # reconst = fresnel_fft(hologram.astype(np.complex128), constants)
 
-    # # monopolarホログラム
-    # hologram = monopolar_fixed_point(points, constants, binary=True)
-    # holo_ratio = sum_holograms(hologram, len(points))  # /物体点
+    # monopolarホログラム
+    hologram = monopolar_fixed_point(points, constants, binary=True)
+    holo_ratio = sum_holograms(hologram, len(points))  # /物体点
 
-    # # QGHに適用 (random)
-    # hologram_rand = random_hologram(
-    #     holo_ratio=holo_ratio, constants=constants
-    # )
+    # QGHに適用 (random)
+    hologram_rand = random_hologram(
+        holo_ratio=holo_ratio, constants=constants
+    )
 
-    # # 再構成して出力を見る
-    # reconst = fresnel_fft(hologram_rand.astype(np.complex128), constants)
-    # reconst_intensity = np.abs(reconst) ** 2
+    # 再構成して出力を見る
+    reconst = fresnel_fft(hologram_rand.astype(np.complex128), constants)
+    reconst_intensity = np.abs(reconst) ** 2
+
     print("CGH Calculation completed!")
 
     end = time.time()
@@ -132,8 +133,8 @@ def main():
 
     print("Preparing for display...")
     show(
-        # [holo_ratio, hologram_rand, reconst_intensity],
-        [hologram, reconst],
+        [holo_ratio, hologram_rand, reconst_intensity],
+        # [hologram, reconst],
         x=constants.X,
         y=constants.Y,
         binary=True,
