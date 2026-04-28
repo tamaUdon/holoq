@@ -2,23 +2,25 @@ import math
 import time
 from datetime import datetime
 from decimal import (
-    Decimal,
     getcontext,
 )
-from fractions import Fraction
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tqdm
 from constants import ClassicalConstants
+from monoq_binary import extract_binary_frac_part_from_theta, target_binary
+from monoq_decimal import (
+    extract_decimal_frac_part_from_theta,
+    target_decimal,
+)
 from pointcloud import (
+    create_circle,
     create_four_points,
     create_rectangle_points,
     create_sin_wave,
     create_single_point,
-    create_circle,
     show,
 )
 
@@ -89,45 +91,6 @@ def _save_probabilities(
         ).to_csv(f, index=False)
 
 
-def _extract_decimal_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
-    """
-    10進数ver. θ=M*N から小数部を取り出す
-    - 整数部と小数部に分ける
-    - 小数部を抜き出す
-    - decimal型に変換
-
-    return: 小数部<Decimal>
-    """
-
-    frac_part, int_part = np.modf(θ)  # 例) 1.5 -> (0.5, 1.0)
-    decimal_arr = np.array(  # Decimal型に変換し、.以下をstrとして格納
-        [[Decimal(str(x).split(".")[1]) for x in row] for row in frac_part],
-        dtype=object,
-    )
-    return decimal_arr
-
-
-def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
-    """
-    2進数ver. θ=M*N から小数部を取り出す
-    - 整数部と小数部に分ける
-    - 小数部を抜き出す
-    - binaryに変換
-
-    return: 小数部<Decimal>
-    """
-    frac_part, int_part = np.modf(θ)  # 例) 1.5 -> (0.5, 1.0)
-    frac_scaled = (frac_part * 255).astype(
-        np.uint8  # uint8 に変換
-    )  # unpackbits は uint8 のみ対応
-
-    binary_frac = np.unpackbits(  # 2進数に変換
-        frac_scaled, axis=1, bitorder="big"
-    ).reshape(*frac_part.shape, 8)  # 例) [3] -> [1,1]
-
-    return binary_frac
-
-
 def _monopolar_phase_from_point(
     xh: np.ndarray,
     yh: np.ndarray,
@@ -141,58 +104,11 @@ def _monopolar_phase_from_point(
     return (math.pi / (constants.λ * zj)) * (dx * dx + dy * dy)
 
 
-def _target_decimal(decimal_arr: np.ndarray, idx: int) -> np.ndarray:
-    """
-    関数T(・)の実装
-    - Decimal型の小数部を受け取る
-    - 0 or 1半々に振り分けて返却する
-    """
-
-    decimal_t_array = np.array(
-        [[(Decimal(str(int(x))[0])) for x in row] for row in decimal_arr],
-        dtype=int,
-    )
-    decimal_choice = np.where(
-        decimal_t_array <= 4,
-        0,  # 4以下を0に
-        np.where(decimal_t_array >= 6, 1, 5),  # 6以上を1に, 5はそのまま
-    )
-    mask_5 = decimal_choice == 5  # 5の部分を特定
-    count_5 = np.sum(mask_5)  # 5の数を数える
-    decimal_choice[mask_5] = np.random.choice(
-        [0, 1],  # 5 -> 0 or 1どちらかに振り分け
-        size=count_5,
-        p=[0.5, 0.5],
-    )
-
-    # _print_probabilities_unique_value(
-    #     decimal_t_array,
-    #     name=f"decimal_t_array_p{idx}",  # TODO - 引数かconstantsから受け取る
-    #     dir=STATS_DIR,
-    #     save=True,
-    # )
-    return decimal_choice
-
-
-def _target_binary(theta_frac: np.ndarray, idx: int) -> np.ndarray:
-    """
-    関数T(・)の実装
-    - binaryにしたθの小数部を受け取る (big endian)
-    - 任意の桁を取り出し、0 or 1の配列をつくって返却する
-    """
-    # [:,0]...1文字目を取り出す (big endian最上位の桁)
-    binary_choice = theta_frac[:, :, TARGET]  # 全ての行の各列1文字目を抽出
-    # _print_probabilities_unique_value(
-    #     theta_frac[:, :, TARGET], name=f"theta_frac[:, :, {TARGET}]"
-    # )
-    return binary_choice
-
-
 def monopolar_fixed_point(
     points: np.ndarray, constants: ClassicalConstants, binary: bool
 ) -> np.ndarray:
     """
-    monopolar hologramの実装 10進数
+    monopolar hologramの実装
     - points: 点群
     - constants: 定数オブジェクト
     - binary: 2進数版を実行するかどうかのフラグ
@@ -205,11 +121,11 @@ def monopolar_fixed_point(
         )
 
     if binary:
-        __extract_frac_part_from_theta = _extract_binary_frac_part_from_theta
-        __target = _target_binary
+        __extract_frac_part_from_theta = extract_binary_frac_part_from_theta
+        __target = target_binary
     else:
-        __extract_frac_part_from_theta = _extract_decimal_frac_part_from_theta
-        __target = _target_decimal
+        __extract_frac_part_from_theta = extract_decimal_frac_part_from_theta
+        __target = target_decimal
 
     ### 固定小数実装版
     x = np.arange(constants.X, dtype=np.int32)
@@ -220,7 +136,7 @@ def monopolar_fixed_point(
     for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
         θ = _monopolar_phase_from_point(xh, yh, xj, yj, zj, constants)
         theta_frac = __extract_frac_part_from_theta(θ)
-        holograms.append(__target(theta_frac, idx=idx))
+        holograms.append(__target(theta_frac, target=TARGET))
 
     return np.array(holograms)
 
