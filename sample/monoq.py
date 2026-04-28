@@ -114,12 +114,6 @@ def monopolar_fixed_point(
     - binary: 2進数版を実行するかどうかのフラグ
     """
 
-    if points.ndim != 2 or points.shape[1] != 3:
-        raise ValueError(
-            "points must be a 2D point cloud with shape (N, 3); "
-            f"got {points.shape}"
-        )
-
     if binary:
         __extract_frac_part_from_theta = extract_binary_frac_part_from_theta
         __target = target_binary
@@ -133,8 +127,20 @@ def monopolar_fixed_point(
     xh, yh = np.meshgrid(x, y)
     holograms = []
 
+    p_sq = np.pi * constants.pp * constants.pp
+    p_denom = constants.λ
+    N = p_sq / p_denom  # noqa: N806
+
     for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
-        θ = _monopolar_phase_from_point(xh, yh, xj, yj, zj, constants)
+        xhj = xh.astype(np.int32) - xj
+        yhj = yh.astype(np.int32) - yj
+        x_sq = xhj * xhj
+        y_sq = yhj * yhj
+        z_sq = zj * zj
+
+        M = x_sq + y_sq + z_sq  # M-bit # noqa: N806
+        θ = M * N
+
         theta_frac = __extract_frac_part_from_theta(θ)
         holograms.append(__target(theta_frac, target=TARGET))
 
@@ -144,7 +150,6 @@ def monopolar_fixed_point(
 def sum_holograms(holograms: np.ndarray, n: int) -> np.ndarray:
     holo_sum = holograms.sum(axis=0)
     holo_ratio = holo_sum / n  # 物体点数
-    print(f"/nした確率{holo_ratio=}")
     return holo_ratio
 
 

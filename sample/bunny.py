@@ -1,6 +1,5 @@
 # 点群法で1つのゾーンプレートを表示するスクリプト
 
-import math
 import time
 from pathlib import Path
 
@@ -8,20 +7,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import open3d.data
-import tqdm
 from constants import ClassicalConstants
 from monoq import monopolar_fixed_point, random_hologram, sum_holograms
 from pointcloud import (
     create_circle,
     create_cube,
     create_depth_line,
+    create_four_points,
     create_rectangle_points,
     create_sin_wave,
     create_single_point,
     generate_hologram,
     show,
 )
-from reconst_hologram import fresnel_fft, response
+from reconst_hologram import fresnel_fft
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -156,22 +155,23 @@ def main():
 
     # points
     points = create_single_point(constants)
+    # points = create_four_points(constants)
     # points = create_rectangle_points(constants)
     # points = create_sin_wave(constants)
     # points = create_circle(constants)
 
-    # # bunny
+    # # bunny 3d
     # point_cloud = load_bunny_pointcloud()
     # print("Loading data completed!")
     # point_cloud = downsampling(point_cloud, every_k_points=10)
     # print("Downsampling completed!")
     # points = np.asarray(point_cloud.points)
 
-    # cube
-    # points = create_cube(constants, width=constants.X // 8, step=15)
+    # cube 3d
+    # points = create_cube(constants, width=constants.X // 8, step=10)
 
-    # depth_only
-    # points = create_depth_line(depth_n=10000, constants=constants)
+    # depth_only 3d
+    # points = create_depth_line(depth_n=100, constants=constants)
 
     show_pointcloud(points)
 
@@ -185,7 +185,10 @@ def main():
         out = [hologram, recon_intensity]
     else:
         # # monopolarホログラム
-        # points = transform_points_to_plate(points, constants)  # 2dにする
+        points = transform_points_to_plate(
+            points, constants
+        )  # 3dのとき2dにする
+        print(f"点群数={len(points)}")
         hologram = monopolar_fixed_point(points, constants, binary=True)
         holo_ratio = sum_holograms(hologram, len(points))  # /物体点
         holo_rand = random_hologram(
@@ -224,5 +227,13 @@ def main():
 if __name__ == "__main__":
     main()
 
-# TODO - binaryにbunnyをいれてみる
-# TODO - 3d点群対応
+# DONE - cghとmonopolarで出力が（大体）一緒になるようにした
+# TODO - points, cgh:boolをそれぞれ変更しながら出力の変化をみる
+# TODO - transform_points_to_plate() が正しく実装できてるか見る
+# TODO - 3d点群対応(必要？3d->2dとするtransform_points_to_plateは作成した)
+
+
+# MEMO
+# 1. monopolarのとき、rectngle, sin波は薄くなる (1,4点のときよりも薄くなる)
+# 2. 奥行に点がたくさんあるとcghと出力がほとんど一緒になる (奥行方向に点群が密だと画質が良くなる)
+# 3. 横方向に多くの点が並んでいる場合（"="のような）は？
