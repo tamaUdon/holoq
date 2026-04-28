@@ -15,11 +15,11 @@ class ClassicalConstants:
         d: ホログラム面と物体面の距離 [m]。
     """
 
-    X = 512  # 画素X方向
+    X = 256  # 画素X方向
     Y = X
     λ = 633e-9  # 波長[nm] e-9
     pp = 10e-6  # 画素ピッチ[μm] e-6
-    d = 200e-3  # 物体までの距離[mm] e-3 # 260
+    d = 80e-3  # 物体までの距離[mm] e-3 # 260 # TODO - 自動計算に変更
     bits_w = 2
 
     @property

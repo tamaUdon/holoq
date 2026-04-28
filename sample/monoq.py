@@ -1,3 +1,4 @@
+import math
 import time
 from datetime import datetime
 from decimal import (
@@ -122,9 +123,22 @@ def _extract_binary_frac_part_from_theta(θ: np.ndarray) -> np.ndarray:
 
     binary_frac = np.unpackbits(  # 2進数に変換
         frac_scaled, axis=1, bitorder="big"
-    ).reshape(512, 512, 8)  # 例) [3] -> [1,1]
+    ).reshape(*frac_part.shape, 8)  # 例) [3] -> [1,1]
 
     return binary_frac
+
+
+def _monopolar_phase_from_point(
+    xh: np.ndarray,
+    yh: np.ndarray,
+    xj: float,
+    yj: float,
+    zj: float,
+    constants: ClassicalConstants,
+) -> np.ndarray:
+    dx = (xh - xj) * constants.pp
+    dy = (yh - yj) * constants.pp
+    return (math.pi / (constants.λ * zj)) * (dx * dx + dy * dy)
 
 
 def _target_decimal(decimal_arr: np.ndarray, idx: int) -> np.ndarray:
@@ -184,6 +198,12 @@ def monopolar_fixed_point(
     - binary: 2進数版を実行するかどうかのフラグ
     """
 
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError(
+            "points must be a 2D point cloud with shape (N, 3); "
+            f"got {points.shape}"
+        )
+
     if binary:
         __extract_frac_part_from_theta = _extract_binary_frac_part_from_theta
         __target = _target_binary
@@ -191,50 +211,16 @@ def monopolar_fixed_point(
         __extract_frac_part_from_theta = _extract_decimal_frac_part_from_theta
         __target = _target_decimal
 
-    if DEBUG:
-        """ 
-        ## float実装版, 比較用  monopolar.monopolar_numpy() より
-        # WARNING - うまく表示されてない (6*6のzoneplate) 
-        #           np.cos()を用いたmonopolarの場合は問題ない
-        # TODO - pp, d, λのかけ方を確認する
-        """
-        x = np.arange(constants.X, dtype=np.float64) * constants.pp
-        y = np.arange(constants.Y, dtype=np.float64) * constants.pp
-        xx, yy = np.meshgrid(x, y)
-        holograms = np.zeros((constants.Y, constants.X), dtype=np.float64)
+    ### 固定小数実装版
+    x = np.arange(constants.X, dtype=np.int32)
+    y = np.arange(constants.Y, dtype=np.int32)
+    xh, yh = np.meshgrid(x, y)
+    holograms = []
 
-        for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
-            hx = xx - xj * constants.pp
-            hy = yy - yj * constants.pp
-            rho = constants.k / zj
-            phase = rho * (hx * hx + hy * hy + zj * zj)
-
-            theta_frac = __extract_frac_part_from_theta(phase)
-            holograms += __target(theta_frac, idx)
-
-    else:
-        ### 固定小数実装版
-        x = np.arange(constants.X, dtype=np.int32)
-        y = np.arange(constants.Y, dtype=np.int32)
-        xh, yh = np.meshgrid(x, y)
-        holograms = []
-
-        p_sq = np.pi * constants.pp * constants.pp
-        p_denom = constants.λ
-        N = p_sq / p_denom  # noqa: N806
-
-        for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
-            xhj = xh.astype(np.int32) - xj
-            yhj = yh.astype(np.int32) - yj
-            x_sq = xhj * xhj
-            y_sq = yhj * yhj
-            z_sq = zj * zj
-
-            M = x_sq + y_sq + z_sq  # M-bit # noqa: N806
-            θ = M * N
-
-            theta_frac = __extract_frac_part_from_theta(θ)
-            holograms.append(__target(theta_frac, idx=idx))
+    for idx, (xj, yj, zj) in enumerate(tqdm.tqdm(points)):
+        θ = _monopolar_phase_from_point(xh, yh, xj, yj, zj, constants)
+        theta_frac = __extract_frac_part_from_theta(θ)
+        holograms.append(__target(theta_frac, idx=idx))
 
     return np.array(holograms)
 

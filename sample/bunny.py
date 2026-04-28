@@ -11,8 +11,17 @@ import open3d.data
 import tqdm
 from constants import ClassicalConstants
 from monoq import monopolar_fixed_point, random_hologram, sum_holograms
-from pointcloud import generate_hologram, show
-from reconst_hologram import fresnel_fft
+from pointcloud import (
+    create_circle,
+    create_cube,
+    create_depth_line,
+    create_rectangle_points,
+    create_sin_wave,
+    create_single_point,
+    generate_hologram,
+    show,
+)
+from reconst_hologram import fresnel_fft, response
 
 
 def load_bunny_pointcloud() -> open3d.geometry.PointCloud:
@@ -41,7 +50,7 @@ def show_pointcloud(points: np.ndarray) -> None:
     plt.show()
 
 
-def change_const_from_points(
+def transform_points_to_plate(
     points: np.ndarray,
     constants: ClassicalConstants,
     show_projection: bool = True,
@@ -73,7 +82,7 @@ def change_const_from_points(
         (
             image_xy[:, 0],
             image_xy[:, 1],
-            np.full(len(points), constants.d, dtype=np.float64),
+            points[:, 2],
         )
     )
 
@@ -97,34 +106,104 @@ def change_const_from_points(
     return points_2d
 
 
+def adapt_z_to_depth(
+    points: np.ndarray,
+    source_points: np.ndarray,
+    constants: ClassicalConstants,
+    depth_range: float = 30e-3,
+    show_depth: bool = True,
+) -> np.ndarray:
+    # bunnyの深度をconstants.dに代入する
+    if len(points) != len(source_points):
+        raise ValueError("points and source_points must have the same length")
+
+    z = source_points[:, 2].astype(np.float64)
+    z_min = z.min()
+    z_size = np.ptp(z)
+
+    if z_size == 0.0:
+        depth = np.full(len(points), constants.d, dtype=np.float64)
+    else:
+        z_norm = (z - z_min) / z_size
+        depth = constants.d + (z_norm - 0.5) * depth_range
+
+    points_with_depth = points.copy()
+    points_with_depth[:, 2] = depth
+
+    if show_depth:
+        fig, ax = plt.subplots()
+        scatter = ax.scatter(
+            points_with_depth[:, 0],
+            points_with_depth[:, 1],
+            c=points_with_depth[:, 2],
+            s=4,
+            cmap="viridis",
+        )
+        fig.colorbar(scatter, ax=ax, label="Depth [m]")
+        ax.set_title("Bunny Depth")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_aspect("equal", adjustable="box")
+        plt.tight_layout()
+        plt.show()
+
+    return points_with_depth
+
+
 def main():
     start = time.time()
     constants = ClassicalConstants()
 
-    point_cloud = load_bunny_pointcloud()
-    print("Loading data completed!")
+    # points
+    points = create_single_point(constants)
+    # points = create_rectangle_points(constants)
+    # points = create_sin_wave(constants)
+    # points = create_circle(constants)
 
-    point_cloud = downsampling(point_cloud, every_k_points=10)
-    print("Downsampling completed!")
+    # # bunny
+    # point_cloud = load_bunny_pointcloud()
+    # print("Loading data completed!")
+    # point_cloud = downsampling(point_cloud, every_k_points=10)
+    # print("Downsampling completed!")
+    # points = np.asarray(point_cloud.points)
 
-    points = np.asarray(point_cloud.points)
+    # cube
+    # points = create_cube(constants, width=constants.X // 8, step=15)
+
+    # depth_only
+    # points = create_depth_line(depth_n=10000, constants=constants)
+
     show_pointcloud(points)
-    points = change_const_from_points(points, constants)
-    # hologram = generate_hologram(points, constants)
-    # reconst = fresnel_fft(hologram.astype(np.complex128), constants)
 
-    # monopolarホログラム
-    hologram = monopolar_fixed_point(points, constants, binary=True)
-    holo_ratio = sum_holograms(hologram, len(points))  # /物体点
+    out = []
+    cgh = False  # True
+    if cgh:
+        # cghホログラム、再構成
+        hologram = generate_hologram(points, constants)  # ok
+        recon = fresnel_fft(hologram.astype(np.complex128), constants)
+        recon_intensity = np.abs(recon) ** 2
+        out = [hologram, recon_intensity]
+    else:
+        # # monopolarホログラム
+        # points = transform_points_to_plate(points, constants)  # 2dにする
+        hologram = monopolar_fixed_point(points, constants, binary=True)
+        holo_ratio = sum_holograms(hologram, len(points))  # /物体点
+        holo_rand = random_hologram(
+            holo_ratio=holo_ratio, constants=constants
+        )
 
-    # QGHに適用 (random)
-    hologram_rand = random_hologram(
-        holo_ratio=holo_ratio, constants=constants
-    )
+        # # monopolar再構成
+        recon_holo = fresnel_fft(holo_ratio.astype(np.complex128), constants)
+        holo_reconst_intensity = np.abs(recon_holo) ** 2
+        recon_rand = fresnel_fft(holo_rand.astype(np.complex128), constants)
+        rand_reconst_intensity = np.abs(recon_rand) ** 2
 
-    # 再構成して出力を見る
-    reconst = fresnel_fft(hologram_rand.astype(np.complex128), constants)
-    reconst_intensity = np.abs(reconst) ** 2
+        out = [
+            holo_ratio,
+            holo_reconst_intensity,
+            holo_rand,
+            rand_reconst_intensity,
+        ]
 
     print("CGH Calculation completed!")
 
@@ -133,8 +212,7 @@ def main():
 
     print("Preparing for display...")
     show(
-        [holo_ratio, hologram_rand, reconst_intensity],
-        # [hologram, reconst],
+        out,
         x=constants.X,
         y=constants.Y,
         binary=True,

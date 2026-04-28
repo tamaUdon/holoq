@@ -68,13 +68,14 @@ def create_circle(constants: ClassicalConstants) -> np.ndarray:
     :rtype: np.ndarray
     """
 
+    scale = 6.0
     x = np.arange(constants.X, dtype=np.float64)
     y = np.arange(constants.Y, dtype=np.float64)
     xx, yy = np.meshgrid(x, y, indexing="xy")
 
-    cx = (constants.X - 1) / 2.0
-    cy = (constants.Y - 1) / 2.0
-    radius_sq = (constants.X * constants.Y) / (2.0 * np.pi)
+    cx = (constants.X - 1) / scale
+    cy = (constants.Y - 1) / scale
+    radius_sq = (constants.X * constants.Y) / (scale * np.pi)
 
     mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= radius_sq
     points_xy = np.column_stack((xx[mask], yy[mask]))
@@ -131,6 +132,89 @@ def create_rectangle_points(constants: ClassicalConstants) -> np.ndarray:
 
     rectangle = np.concatenate((top, bottom, left, right))
     return rectangle
+
+
+def create_depth_line(
+    depth_n: int,
+    constants: ClassicalConstants,
+    depth: float = 30e-3,
+) -> np.ndarray:
+    # 奥行方向のみにdepth_n個の点群を打つ
+    if depth_n <= 0:
+        raise ValueError("depth_n must be greater than 0")
+    if depth < 0:
+        raise ValueError("depth must be greater than or equal to 0")
+
+    x = np.full(depth_n, constants.X / 2, dtype=np.float64)
+    y = np.full(depth_n, constants.Y / 2, dtype=np.float64)
+
+    if depth_n == 1 or depth == 0:
+        z = np.full(depth_n, constants.d, dtype=np.float64)
+    else:
+        z = np.linspace(
+            constants.d - depth / 2.0,
+            constants.d + depth / 2.0,
+            depth_n,
+            dtype=np.float64,
+        )
+
+    return np.column_stack((x, y, z))
+
+
+def create_cube(
+    constants: ClassicalConstants,
+    width: int | None = None,
+    depth: float = 30e-3,
+    step: int = 8,
+) -> np.ndarray:
+    """
+    create_cube cube型の点群を作成する関数
+
+    - x, y はホログラム面の画素座標。
+    - z はホログラム面から物体点までの距離 [m]。
+    - 表面だけでなく、中身にも点が詰まった立方体を作る。
+
+    :param constants: 定数クラスのオブジェクト
+    :type constants: ClassicalConstants
+    :param width: cubeのx/y方向サイズ [pixel]
+    :type width: int | None
+    :param depth: cubeのz方向サイズ [m]
+    :type depth: float
+    :param step: x/y/z方向の点間隔
+    :type step: int
+    :return: cube型の点群
+    :rtype: np.ndarray
+    """
+
+    if step <= 0:
+        raise ValueError("step must be greater than 0")
+
+    if width is None:
+        width = constants.X // 4
+    if width <= 0:
+        raise ValueError("width must be greater than 0")
+
+    cx = (constants.X - 1) / 2.0
+    cy = (constants.Y - 1) / 2.0
+    half_width = width / 2.0
+
+    xs = np.arange(cx - half_width, cx + half_width + 1, step)
+    ys = np.arange(cy - half_width, cy + half_width + 1, step)
+
+    z_step = step * constants.pp
+    if depth == 0:
+        zs = np.array([constants.d], dtype=np.float64)
+    else:
+        z_count = max(2, int(np.floor(depth / z_step)) + 1)
+        zs = np.linspace(
+            constants.d - depth / 2.0,
+            constants.d + depth / 2.0,
+            z_count,
+            dtype=np.float64,
+        )
+
+    xx, yy, zz = np.meshgrid(xs, ys, zs, indexing="xy")
+    return np.column_stack((xx.ravel(), yy.ravel(), zz.ravel()))
 
 
 def create_sin_wave(constants: ClassicalConstants, debug=False) -> np.ndarray:

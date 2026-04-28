@@ -11,9 +11,8 @@ from pointcloud import (
 )
 
 
-def response(constants: ClassicalConstants):
-    size_x = constants.X * 2
-    size_y = constants.Y * 2
+def response(constants: ClassicalConstants, shape: tuple[int, int]):
+    size_x, size_y = shape
     x = (np.arange(size_x, dtype=np.float64) - size_x / 2) * constants.pp
     y = (np.arange(size_y, dtype=np.float64) - size_y / 2) * constants.pp
     dx, dy = np.meshgrid(x, y)
@@ -34,7 +33,7 @@ def fresnel_fft(
 
     pad_points = np.pad(points, constants.pad)
     fa = np.fft.fft2(pad_points)
-    fb = response(constants)
+    fb = response(constants, pad_points.shape)
     μ = np.fft.ifft2(fa * fb)
 
     if constants.pad == 0:
