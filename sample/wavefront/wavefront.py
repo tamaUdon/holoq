@@ -2,7 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import tqdm
+import cv2
 
 
 def create_single_point(x, y, z) -> np.ndarray:
@@ -23,7 +23,11 @@ def create_single_point(x, y, z) -> np.ndarray:
     return np.array([[x0, y0, z0]], dtype=float)
 
 
-def load_image(path: Path) -> np.ndarray: ...
+def load_image(path: str) -> np.ndarray:
+    img_gray = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if img_gray is not None:
+        return img_gray / 255
+    raise IOError  # 0-index
 
 
 def create_image():
@@ -87,8 +91,10 @@ def main():
     y = np.arange(-H, H) * pp  # ゼロパディングに備えて2倍の座標幅を用意する
 
     # u1の作成
-    u1 = np.zeros((H, W))
-    u1[H // 2, W // 2] = 1  # 真ん中だけ(1,1)にする
+    # u1 = np.zeros((H, W))
+    # u1[H // 2, W // 2] = 1  # 真ん中だけ(1,1)にする
+    u1 = load_image("./sample/wavefront/images/orange.jpg")
+    # TODO - 光波の複素振幅を設定する (2.29, 2.30, 2.31)
     u1_x, u1_y = np.meshgrid(x, y)  # u1座標
 
     # u2の作成
