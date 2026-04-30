@@ -24,9 +24,9 @@ def create_single_point(x, y, z) -> np.ndarray:
 
 
 def load_image(path: str) -> np.ndarray:
-    img_gray = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    img_gray = cv2.imread(path, cv2.IMREAD_GRAYSCALE)  # 輝度値のみ
     if img_gray is not None:
-        return img_gray / 255
+        return img_gray / 256
     raise IOError  # 0-index
 
 
@@ -36,21 +36,35 @@ def create_image():
     np.meshgrid(xx, yy, indexing="ij")
 
 
-def a1(intense: float) -> np.ndarray:
-    # intense...伝播元の画像のI_aの各ピクセルの光波の強度分布
-    # TODO - 1になるよう正規化する
-    return np.sqrt(intense)
+def a1(grey_image: np.ndarray) -> np.ndarray:
+    # intense...伝播元の画像のI_aの各ピクセルの光波の強度分布(画素値)
+    # jpeg ガンマ補正
+    gamma = 2.2
+    intensity = np.power(grey_image, gamma)
+    return np.sqrt(intensity)
 
 
-def p1(phase: float) -> float:
-    # phase...伝播元の画像のI_aの各ピクセルの光波の位相分布
-    return phase / 256
+def p1(phase: np.ndarray) -> np.ndarray:
+    # phase...伝播元の画像のI_aの各ピクセルの光波の位相分布(輝度値)
+    # 256で割って正規化 -> load_image()で完了している
+    return phase
+
+
+def u1(image: np.ndarray):
+    # (2.29)式の実装
+    _a1 = a1(image)
+    _p1 = p1(image)
+    print(f"{np.max(_p1)=}, {np.min(_p1)=}")
+    phase = 1j + 2 * np.pi * _p1
+    cos_part = _a1 * np.cos(phase)
+    sin_part = 1j * _a1 * np.sin(phase)
+    return cos_part + sin_part
 
 
 def h(
     z: float, λ: float, r: np.ndarray, W: int, H: int, pp: float
 ) -> np.ndarray:
-    # 角スペクトル法
+    # 角スペクトル法 (2.23)式の実装
     # z ... z21
     # r...r21
 
@@ -64,10 +78,14 @@ def h(
     return np.exp(1j * 2 * np.pi * p)
 
 
-def show_twin(hologram: np.ndarray, recon: np.ndarray) -> None:
+def show_twin(
+    hologram: np.ndarray, recon: np.ndarray, pp: float, λ: float, d: float
+) -> None:
+    plt.close()
     fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    fig.canvas.manager.set_window_title(f"pp={pp}, λ={λ}, d={d}")  # type: ignore
     ax[0].imshow(hologram, cmap="gray")
-    ax[0].set_title("Hologram")
+    ax[0].set_title(f"Hologram")
     ax[0].axis("off")
 
     intensity = np.abs(recon) ** 2
@@ -80,43 +98,45 @@ def show_twin(hologram: np.ndarray, recon: np.ndarray) -> None:
 
 
 def main():
-    W: int = 512
-    H: int = 512
-    d = 180e-3
-    pp = 10e-6
-    λ = 633e-9
+    pp_arr = [1.5e-6, 2.2e-6, 3.45e-6, 8.0e-6, 20.0e-6]  # e-6
+    λ_arr = [441e-9, 488e-9, 520e-9, 532e-9, 632e-9, 650e-9]  # e-9
 
-    # 座標用
-    x = np.arange(-W, W) * pp
-    y = np.arange(-H, H) * pp  # ゼロパディングに備えて2倍の座標幅を用意する
+    # pp = 8.0e-6
+    # λ = 632e-9
+    d = 90e-3  # 自動計算
 
     # u1の作成
-    # u1 = np.zeros((H, W))
-    # u1[H // 2, W // 2] = 1  # 真ん中だけ(1,1)にする
-    u1 = load_image("./sample/wavefront/images/orange.jpg")
-    # TODO - 光波の複素振幅を設定する (2.29, 2.30, 2.31)
-    u1_x, u1_y = np.meshgrid(x, y)  # u1座標
+    image = load_image("./sample/wavefront/images/orange.jpg")
+    W, H = image.shape
+    _u1 = u1(image)
 
-    # u2の作成
-    u2_x, u2_y = np.meshgrid(x, y)  # u2座標
+    for pp in pp_arr:
+        for λ in λ_arr:
+            pp = pp
+            # 座標作成
+            x = np.arange(-W, W) * pp
+            y = (
+                np.arange(-H, H) * pp
+            )  # ゼロパディングに備えて2倍の座標幅を用意する
+            u1_x, u1_y = np.meshgrid(x, y)
+            u2_x, u2_y = np.meshgrid(x, y)
 
-    # ① u1のゼロパディング
-    u1_pad = np.pad(u1, W // 2)
+            # ① u1のゼロパディング
+            _u1_pad = np.pad(_u1, W // 2)
 
-    # ② ①をフーリエ変換する
-    fa = np.fft.fft2(u1_pad)
+            # ② ①をフーリエ変換する
+            fa = np.fft.fft2(_u1_pad)
 
-    # ③ 伝達関数Ηを計算する
-    dx = u2_x - u1_x * pp
-    dy = u2_y - u1_y * pp
-    r = np.sqrt(dx**2 + dy**2 + d**2)
-    fb = h(z=d, λ=λ, r=r, W=W * 2, H=H * 2, pp=pp)
+            # ③ 伝達関数Ηを計算する
+            dx = u2_x - u1_x * pp
+            dy = u2_y - u1_y * pp
+            r = np.sqrt(dx**2 + dy**2 + d**2)
+            fb = h(z=d, λ=λ, r=r, W=W * 2, H=H * 2, pp=pp)
 
-    # ④ ②と③を複素乗算する / ⑤ ④の結果を逆フーリエ変換する
-    out = np.fft.ifft2((fa * fb))
+            # ④ ②と③を複素乗算する / ⑤ ④の結果を逆フーリエ変換する
+            out = np.fft.ifft2((fa * fb))
 
-    show_twin(np.angle(out), out)
-    # np.angle(out) # 位相を見る時
+            show_twin(np.angle(out), out, pp, λ, d)
 
 
 if __name__ == "__main__":
