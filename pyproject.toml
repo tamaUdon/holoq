@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.10.7",
     "numpy>=2.3.5",
     "open3d>=0.19.0",
+    "opencv-python>=4.13.0.92",
     "pylatexenc>=2.10",
     "qiskit>=2.2.3",
     "qiskit-aer>=0.17.2",
