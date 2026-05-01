@@ -72,7 +72,7 @@ def h(
     fy = np.fft.fftfreq(H, d=pp)
     Fx, Fy = np.meshgrid(fx, fy)
 
-    cond = (fx**2 + fy**2) <= (1 / λ**2)
+    cond = (Fx**2 + Fy**2) <= (1 / λ**2)
     func = z * np.sqrt((1 / λ**2) - Fx**2 - Fy**2)
     p = np.where(cond, func, 0)
     return np.exp(1j * 2 * np.pi * p)
